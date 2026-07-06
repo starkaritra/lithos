@@ -161,14 +161,60 @@ The arc is deliberate: **A exposes the bottleneck; C solves it.** Grove's reusab
 ---
 
 ## Open questions (decide before or during the relevant phase)
-- **OQ-6 (v1 / Arm A)** — Scope of the mini-GPU ISA + kernel language: how minimal? (proposed: a tiny fixed instruction set — load/store/ALU/compare/branch + thread-id — and a hand-written or trivially-parsed kernel, NOT a general language/LLVM). *Open — resolve before Arm-A build.*
-- **OQ-7 (v1 / Arm A)** — What does v1 visibly compute + measure first? (proposed: vector-add → reduction → tiled matmul, with divergence/coalescing/occupancy instrumented). *Open.*
-- **OQ-8 (Arm C)** — PIM model + the memory-bound kernel that forces it, and the headline metric (proposed: off-chip bytes moved + modelled data-movement energy on embedding-gather / SpMV). *Open — Arm-C concern.*
+- **OQ-6 (Arm A)** — mini-GPU ISA scope. **RESOLVED (built):** minimal 10-op ISA
+  (mov/tid/iadd/imul/slt/ld/st/jmp/bra/halt) + labels, hand-written `.sasm` kernels, no general
+  language/LLVM. See `simt/`.
+- **OQ-7 (Arm A)** — what v1 computes/measures. **RESOLVED (built):** vector-add → reduction, with
+  latency-hiding, coalescing, divergence, and the memory wall all instrumented + plotted. See
+  `simt/docs/`.
+- **OQ-8 (Arm C)** — PIM model + memory-bound kernel + headline metric. **RESOLVED (D-017):**
+  bank + off-chip-bandwidth-capped model; **headline kernel = recommendation-style embedding-bag
+  sum-pooling (A)**, with array-reduction (B) as the de-risk first slice and a reduction-ratio
+  **sweep (D)** for honesty; **primary metric = off-chip bytes moved** (+ modelled energy secondary).
 - **OQ-9** — Is there a visualization layer (browser, reusing the owner's loupe experience) or is v1 headless-sim + CLI/plots only? **RESOLVED (D-016):** headless **C++ cycle-accurate core + Python analysis layer** (the gem5/GPGPU-Sim industry pattern); browser viz is optional later.
 
 ---
 
 **D-016 — Arm A stack: C++ cycle-accurate core + Python analysis (resolves OQ-9).** The owner asked for the *industry standard*, not the convenient choice. The standard for cycle-accurate architecture simulators is **C++** (gem5, GPGPU-Sim/Accel-Sim, SystemC); Python's real role is the config/analysis layer around it (gem5 is literally a C++ core scripted by Python). Given the north star (CS-fundamentals rigor + learn GPU architecture + portfolio signal, D-015), the mini-GPU **engine is C++17** built with **CMake + Ninja + MSVC** (VS 2022 Build Tools — already installed, $0), and the **analysis/plots layer is Python** (reusing the spike's matplotlib rig). Clean engine/render split mirrors the loupe ingest/engine separation and keeps the core headless + unit-testable. A browser visualization is an optional later wrapper, not v1. Rust was considered (modern, memory-safe) but the established arch-sim ecosystem is C++, so C++ is the standard answer. `[verified: gem5/GPGPU-Sim/SystemC are C++; VS2022 BuildTools + bundled CMake/Ninja verified present]` — User input: *"why python? what is the industry standard?"*
+
+---
+
+**D-017 — Arm C scope: near-memory / PIM to solve the memory wall (resolves OQ-8).** Arm A
+*measured* the wall (D-015; `simt/docs/09`): ~one memory access ≈ 225 arithmetic ops, and a
+scattered gather spends ~99% of its cycles moving data. Arm C's thesis: **stop moving the data —
+put small compute units in the memory banks so only results cross the off-chip link.** Honest
+framing (as with Arm A): PIM is prior art (UPMEM, Samsung HBM-PIM, Mutlu/Ghose's line); the
+contribution is *an open, minimal, cycle-accurate near-memory model + a measured, fair
+data-movement result that shows where PIM wins **and where it doesn't**.* `[verified: PIM is a live
+research + commercial area]`
+
+- **Architecture (concrete, $0):** global memory split into `B` **banks**, each owning a contiguous
+  address slice; each bank has a tiny **PIM compute unit (PCU)** doing simple ops (add / MAC /
+  compare) on data resident in *its* bank. An off-chip **link with a bandwidth cap** (bytes/cycle)
+  connects banks↔host. Baseline (the Arm-A GPU) drags all operands across the link; PIM aggregates
+  locally and sends only the small result.
+- **Minimal PIM ISA (~6 ops, mirrors Arm A's discipline):** `pim_load` (bank-local), `pim_add` /
+  `pim_mac`, `pim_reduce` (fold a bank's slice), `host_collect` (gather `B` partials), `halt`.
+- **Bandwidth-capped model (the `simt/docs/09` prerequisite):** add ONE off-chip bytes/cycle ceiling
+  to a *shared* memory model, so **both** the GPU baseline and PIM are limited by the same link —
+  the fairness spine (echoing the spike's OQ-4 "don't rig the baseline" lesson).
+- **Headline kernel = recommendation-style embedding-bag sum-pooling (owner choice "A")** — grab a
+  handful of scattered rows from a huge table and sum them into one vector (the #1 memory-bound
+  workload in industrial recsys / DLRM; ties to D-011). **De-risk first slice = array reduction
+  ("B")** (reuses `simt` ch.08). **Honesty layer = a reduction-ratio sweep ("D")** across kernels
+  from "boils a lot down to a little" (PIM wins) to "needs all the data" / pure gather (PIM barely
+  helps) — this makes the result non-tautological by showing the crossover.
+- **Metric (OQ-8):** primary = **off-chip bytes moved** (assumption-free; the thing PIM reduces),
+  baseline vs PIM as a reduction factor + sensitivity; secondary = **modelled data-movement energy**
+  (bytes × a cited pJ/byte order-of-magnitude). Effect size + range, never a hero number.
+- **Stack:** a new `pim/` module beside `simt/`, sharing a common C++ bandwidth/bank model + the
+  Python analysis layer (D-016 pattern).
+- **Parked (scope traps):** general PIM compiler/language; DRAM-faithful timing (refresh, row
+  buffers); RTL; elaborate energy modelling; multi-level (near-cache + near-DRAM) PIM.
+- **Next:** experimentAS **pre-registers** the measurement (bank/bandwidth params, the reduction-
+  ratio sweep, primary/secondary metrics, and a decision rule that admits an honest NO-GO if the
+  useful regime is too narrow) **before** coderAS generates any numbers.
+`[believed — owner-approved shape]` — User input: chose *"A as headline + B to de-risk + D for honesty."`
 
 - **OQ-1** — Exact GO/NO-GO thresholds for the spike. **RESOLVED (D-012, `spike-prereg.md` §5):** GO iff
   ρ ≥ 3× (canonical) & ρ ≥ 2× (all sweep) vs the conservative baseline & resident ≤ 1 MB & overhead
@@ -191,3 +237,7 @@ The arc is deliberate: **A exposes the bottleneck; C solves it.** Grove's reusab
 | R6 | AI angle is DL-training (not deliverable by EDGE) | [verified] | — | — | — | Accepted tree-inference framing instead | retired |
 | R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **RETIRED → NO-GO (D-014).** Canonical HIGGS ρ=0.84 (<1.5×); overhead-free ceiling only 1.92× (<2×); rival R-A confirmed (predictable branches → branchless N-wide scalar harvests the same parallelism). ML framing dropped; general-purpose EDGE fallback (→ discussAS) |
 | R8 | "Fixed-function FPGA beats you" critique | [believed] | M | M | no | Frame as programmability + open stack (D-010) | open |
+| C1 | Arm C PIM win is a construction tautology (aggregation trivially sends less) | [believed] | H | H | no | Reduction-ratio sweep: show where PIM wins AND fails (crossover) | open — designed around (D-017) |
+| C2 | Over-scoping the DRAM model (refresh/row-buffers) sinks Arm C | [believed] | M | H | no | Minimal bank + single bandwidth cap only | park the rest (D-017) |
+| C3 | Arm C win rests entirely on the energy-per-byte assumption | [believed] | M | M | no | Report bytes-moved (assumption-free) as the primary metric | mitigated (D-017) |
+| C4 | Arm C PIM byte-reduction is marginal even for aggregation → no honest win | [guess] | L | H | no | experimentAS pre-registered measurement admits a NO-GO | open — the gate |
