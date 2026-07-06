@@ -127,6 +127,31 @@ recorded a timestamped **Amendment A1** (2026-07-06T12:41:41+05:30):
 
 ---
 
+**D-014 — Spike outcome: NO-GO on the ML/tree-inference framing (retires R7).** coderAS implemented
+Amendment A1 one-to-one (17 tests) and ran the canonical HIGGS decision. Applying the frozen §5 rule:
+**primary ρ = 0.84 (< 1.5× NO-GO bar) → NO-GO**, overdetermined across four independent rails —
+sweep-min ρ = 0.74 and sweep-**max** only 1.41 (never nears the 2×/3× GO bars); G3 overhead fraction
+0.56 (> 0.50) at the conservative corner; and G1 spills the 1 MB budget at depth≥8 or 1000 trees
+(canonical 898 KB fits). **Decisive fact:** even the *overhead-free* EDGE ceiling is
+`edge_ideal_rate/strong_scalar = 15.35/8.0 = 1.92×` — below the 2× sweep floor **before any EDGE
+overhead is charged** — so the shortfall is structural to the workload+baseline, not an artifact of the
+A1 overhead model. Strong-inference reading: **rival R-A ("the scalar is already fine") is CONFIRMED** —
+HIGGS branches are predictable (data-grounded `p_mis = 0.146`), so the binding baseline is the
+branchless/QuickScorer-style N-wide scalar, which harvests the *same* cross-tree parallelism EDGE
+offers; ρ is invariant (1.20) across the entire p_mis sweep, proving the decision does not rest on any
+branch-predictability assumption. R-B (overhead) is partially confirmed (deepens but doesn't create the
+loss); R-C (spill) confirmed for larger models. **H1 refuted.** Verdict rendered with **calibrated
+confidence ≈ 0.9 (high)**: it is [modelled] not [measured], and analytical models are optimistic, so
+true silicon ρ is if anything ≤ modelled — a sub-2× overhead-free ceiling makes a real ≥3× win on this
+target (GBDT, batch-1, vs a competent branchless scalar) implausible. **Consequence:** drop the ML/
+tree-inference use-case narrative; pursue the **general-purpose open full-stack EDGE contribution**
+(D-004/D-005/D-009) *without* the GBDT/AI win claim. The EDGE core is unaffected; only the use-case
+framing is retired. Re-frame routed to **discussAS** (handoff task 4'). Full reasoning:
+`spike/out/conclusion.md`; artifacts: `spike/out/{results.csv,decision_inputs.json,provenance.json,
+plots}`. `[modelled]` (a $0/days negative result that retires R7 before the simulator one-way door). `[believed]`
+
+---
+
 ## Open questions (decide before or during the relevant phase)
 - **OQ-1** — Exact GO/NO-GO thresholds for the spike. **RESOLVED (D-012, `spike-prereg.md` §5):** GO iff
   ρ ≥ 3× (canonical) & ρ ≥ 2× (all sweep) vs the conservative baseline & resident ≤ 1 MB & overhead
@@ -147,5 +172,5 @@ recorded a timestamped **Amendment A1** (2026-07-06T12:41:41+05:30):
 | R2 | "No open full-stack EDGE" is an *absence* claim | [believed] | M | H | no | Focused prior-art pass (partly done in research/) | open |
 | R3 | Phase-2 block-forming compiler sinks the project | [known] hard | H | H | no | Phase-1 hand-written blocks prove microarch first | mitigated |
 | R6 | AI angle is DL-training (not deliverable by EDGE) | [verified] | — | — | — | Accepted tree-inference framing instead | retired |
-| R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **spike pre-registered (D-012); pre-data cost-model fairness bug found on synthetic smoke → fixed by timestamped Amendment A1 (D-013) BEFORE any canonical data; coderAS to implement A1 then run HIGGS → GO/NO-GO** |
+| R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **RETIRED → NO-GO (D-014).** Canonical HIGGS ρ=0.84 (<1.5×); overhead-free ceiling only 1.92× (<2×); rival R-A confirmed (predictable branches → branchless N-wide scalar harvests the same parallelism). ML framing dropped; general-purpose EDGE fallback (→ discussAS) |
 | R8 | "Fixed-function FPGA beats you" critique | [believed] | M | M | no | Frame as programmability + open stack (D-010) | open |

@@ -7,29 +7,35 @@ For decisions see `decisions.md`; for the design see `architecture.md`; for rese
 ---
 
 ## 1. One-line mission
-Build a from-scratch **EDGE dataflow processor** (ISA + compiler + cycle-accurate sim, $0) and prove
-it beats a GPU at **control-bound tree-ensemble (XGBoost) inference** — a real, large production-ML
-use case.
+Build a from-scratch **EDGE dataflow processor** (ISA + compiler + cycle-accurate sim, $0) as the
+**first open, minimal, readable, reproducible full-stack EDGE implementation with a measured result**.
+*(Note: the original AI/tree-inference win framing was tested and retired — D-014 NO-GO; see §2. The
+mission is now the general-purpose EDGE contribution, pending the discussAS re-frame.)*
 
-## 2. Current state — PRE-BUILD, one gate open
-Nothing is built yet. Direction is locked (D-004…D-007) **conditional on a de-risk spike (D-008)**.
-The spike is cheap ($0, days) and must run **before** any simulator work.
-**Update (2026-07-06):** the spike is now **designed & pre-registered** (D-012, `spike-prereg.md`) —
-OQ-1/OQ-2/OQ-4 resolved. coderAS built the Stage-A rig (15 tests, one-command `run.py`). On the
-**pre-data synthetic smoke**, a cost-model fairness bug was found (ρ structurally < 1 → can't test H1);
-experimentAS fixed it via timestamped **pre-reg Amendment A1** (D-013) **before** any canonical data.
-**coderAS is unblocked to implement A1 one-to-one, then run canonical HIGGS for the GO/NO-GO.**
+## 2. Current state — SPIKE COMPLETE → **NO-GO**; ML framing retired, re-frame pending
+Direction was locked (D-004…D-007) **conditional on the de-risk spike (D-008)**. The spike has now run.
+**Update (2026-07-06):** designed & pre-registered (D-012, `spike-prereg.md`); coderAS built the rig;
+a pre-data fairness bug on the synthetic smoke (ρ structurally < 1) was fixed by timestamped
+**Amendment A1** (D-013) before any canonical data; coderAS implemented A1 (17 tests) and ran canonical
+HIGGS. **Outcome: NO-GO (D-014)** — primary ρ = 0.84 (< 1.5×), overhead-free ceiling only 1.92× (< 2×),
+rival R-A confirmed (predictable branches → a branchless N-wide scalar harvests the same cross-tree
+parallelism EDGE offers). **R7 retired.** The EDGE core is unaffected; only the ML/tree-inference
+use-case narrative is dropped. **Next: discussAS re-frames to a general-purpose open full-stack EDGE
+contribution** (D-004/D-005/D-009), no GBDT/AI win claim. Full reasoning: `spike/out/conclusion.md`.
+**Do NOT start the simulator on the ML thesis** — the gate returned NO-GO by design.
 
 ## 3. What happens next (ordered)
 | # | Task | Owner | Blocking? | Status |
 |---|------|-------|-----------|--------|
 | 1 | Design + pre-register the cost-model spike | **experimentAS** (`handoffs/experimentAS-handoff.md`) | — | ✅ done → `spike-prereg.md`, D-012 |
-| 2 | Implement the cost model to that spec | **coderAS** (`handoffs/coderAS-handoff.md`, Stage A) | after #1 | ✅ rig built (15 tests, `run.py`) · ▶ implement **Amendment A1** (D-013) then run canonical HIGGS |
-| 3 | Run + analyse → **GO / NO-GO** decision | experimentAS | after #2 | pending |
-| 4 | *If GO:* phased EDGE sim build | coderAS (Stage B) | after #3 = GO | pending |
-| 4' | *If NO-GO:* drop ML framing, pursue general-purpose EDGE | discussAS re-frame | after #3 = NO-GO | pending |
+| 2 | Implement the cost model + run it | **coderAS** (`handoffs/coderAS-handoff.md`, Stage A) | after #1 | ✅ rig built + A1 (D-013) implemented (17 tests) + canonical HIGGS run |
+| 3 | Analyse → **GO / NO-GO** decision | experimentAS | after #2 | ✅ **NO-GO (D-014)** → `spike/out/conclusion.md` |
+| 4 | *If GO:* phased EDGE sim build | coderAS (Stage B) | after #3 = GO | ✖ not triggered (spike = NO-GO) |
+| 4' | ***NO-GO:* drop ML framing, pursue general-purpose EDGE** | **discussAS re-frame** | after #3 = NO-GO | ▶ **ACTIVE — next action** |
+| 5 | *(optional)* Covertype confirmatory robustness re-run | coderAS | — | optional; documents external validity of NO-GO |
 
-**Do not start Stage B (the simulator) until the spike returns GO.** That is the whole point of the gate.
+**The gate returned NO-GO.** Do not build the simulator on the tree-inference thesis; the next move is
+the discussAS re-frame to a general-purpose EDGE contribution.
 
 ## 4. The non-negotiables
 - **$0** — free tools only (Python now; Verilator/Icarus later). No paid hardware.
@@ -44,8 +50,10 @@ reproducible full-stack EDGE implementation + a measured control-bound result**,
 micro-innovations and the dynamic-dataflow tree extension. Be ready for the reviewer critique in D-010.
 
 ## 6. Risk ledger (live)
-See `decisions.md` §"Risk & assumption ledger". Top open risk: **R7** — is the GBDT win magnitude
-actually good? → the spike retires it.
+See `decisions.md` §"Risk & assumption ledger". **R7 (GBDT win magnitude) is RETIRED → NO-GO (D-014):**
+the spike showed EDGE does not beat a competent branchless N-wide scalar by a portfolio-worthy margin
+on GBDT batch-1 inference (ρ = 0.84; overhead-free ceiling 1.92×). Next live concern is the
+general-purpose EDGE novelty defense (R2 absence-claim, R8 fixed-function-FPGA critique, D-010).
 
 ## 7. Pointers
 - Design: `architecture.md`
