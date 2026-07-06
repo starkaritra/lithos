@@ -28,6 +28,7 @@ std::uint64_t Core::memory_access(Warp& w, bool is_store) {
     const std::uint64_t txns = segments.empty() ? 0 : segments.size();
     stats_.mem_transactions += txns;
     stats_.mem_ops += 1;
+    last_txns_ = static_cast<int>(txns);
     // Latency = one round trip, plus a bandwidth penalty for each extra transaction
     // beyond the first (an uncoalesced access serializes more segment fetches).
     const std::uint64_t extra = txns > 0 ? txns - 1 : 0;
@@ -118,6 +119,7 @@ void Core::branch(Warp& w) {
     w.pc = then_pc;
     w.rpc = join_pc;
     stats_.divergent_branches += 1;
+    last_diverged_ = true;
 }
 
 void Core::run(int n_threads) {
@@ -161,6 +163,7 @@ void Core::run(int n_threads) {
                 if (!w.halted && w.ready_at > cycle) next = std::min(next, w.ready_at);
             if (next == std::numeric_limits<std::uint64_t>::max()) break;
             cycle = next;
+            pending_stall_ = true;   // the clock had to jump — a real stall gap
             continue;
         }
 
@@ -177,9 +180,35 @@ void Core::run(int n_threads) {
             w.rpc = f.rpc;
         }
 
+        // Snapshot pre-issue state for the trace (only if tracing).
+        int ev_pc = w.pc;
+        std::string ev_op = (w.pc >= 0 && w.pc < static_cast<int>(prog_.size()))
+                                ? op_name(prog_[static_cast<std::size_t>(w.pc)].op) : "?";
+        std::uint32_t ev_mask = 0;
+        if (tracing_)
+            for (int l = 0; l < WARP_SIZE; ++l)
+                if (w.active[l]) ev_mask |= (1u << l);
+        last_txns_ = 0;
+        last_diverged_ = false;
+
         const std::uint64_t latency = execute(w);
         w.ready_at = cycle + latency;
         stats_.cycles = std::max(stats_.cycles, w.ready_at);
+
+        if (tracing_) {
+            TraceEvent ev;
+            ev.cycle = cycle;
+            ev.warp_id = w.id;
+            ev.pc = ev_pc;
+            ev.op = ev_op;
+            ev.active_mask = ev_mask;
+            ev.latency = latency;
+            ev.mem_txns = last_txns_;
+            ev.diverged = last_diverged_;
+            ev.after_stall = pending_stall_;
+            trace_.push_back(std::move(ev));
+            pending_stall_ = false;
+        }
         cycle += 1;  // single instruction issued this cycle
     }
 }

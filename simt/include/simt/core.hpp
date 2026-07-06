@@ -10,6 +10,7 @@
 // Divergence (predicated branches) plugs into the active-mask in a later slice.
 #include "simt/isa.hpp"
 #include "simt/memory.hpp"
+#include "simt/trace.hpp"
 
 #include <array>
 #include <cstdint>
@@ -66,6 +67,11 @@ public:
 
     const SimStats& stats() const { return stats_; }
 
+    // Optional tracing (WASM playground animation). Off by default — enabling it does not
+    // change the simulation or its cycle counts, only records what happened.
+    void enable_trace() { tracing_ = true; }
+    const std::vector<TraceEvent>& trace() const { return trace_; }
+
 private:
     // Execute one instruction of warp w at the given cycle; returns the issue
     // latency (1 for ALU, memory-dependent for LD/ST).
@@ -78,6 +84,12 @@ private:
     CoreConfig cfg_;
     std::vector<Warp> warps_;
     SimStats stats_;
+    // Tracing state (only touched when tracing_ is true; zero effect otherwise).
+    bool tracing_ = false;
+    std::vector<TraceEvent> trace_;
+    int last_txns_ = 0;          // memory transactions of the most recent memory op
+    bool last_diverged_ = false; // whether the most recent BRA diverged
+    bool pending_stall_ = false; // a clock-jump happened before the next issue
 };
 
 }  // namespace simt

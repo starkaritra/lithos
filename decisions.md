@@ -302,6 +302,24 @@ calibrated confidence ~0.82.** The full reasoning + rival scorecard + plots are 
 is NOT merged** — the merge-to-main decision is the owner's/coderAS's, deferred to after this verdict.
 **Next:** owner/coderAS decide merge; if the write-up proceeds, pin the pooling-factor distribution first.
 
+---
+
+**D-020 — Frontend: a WASM "program a GPU in your browser" playground (Arm A demo).** Owner chose a
+*shareable* demo (HN/Reddit/social) over a static site or teaching explorable — the highest-wow tier.
+**Approach:** compile the **real `simt_core` engine to WebAssembly** (Emscripten 6.0.2, `-fexceptions`,
+$0) — no JS reimplementation, so the browser runs the exact cycle-accurate simulator that passes the
+native tests (single source of truth). A nullptr-guarded **trace mode** (`simt/include/simt/trace.hpp`
++ `Core::enable_trace`) records per-issue events for animation **without touching** the tested headless
+path (the 7 native tests still pass, cycles still 681). `simt/src/wasm_api.cpp` exposes one
+`run_kernel(...)→JSON{stats,trace,error}`; `simt/build_wasm.ps1` builds it; `simt/web/` is the
+client-side app (editor + Run + live stats + a Canvas that animates warps/lanes, coalescing
+transactions, divergence, and stall gaps). Verified end-to-end by `simt/web_smoke.cjs`
+("WASM SMOKE PASS"): vector_add→681 cyc/12 txns, divergence→1 diverged event, bad kernel→caught error.
+Everything runs client-side → $0 hosting (GitHub Pages). Built artifacts (`simt/web/simt.{js,wasm}`)
+are gitignored (regenerate via `build_wasm.ps1`); deploy decision (commit built assets vs CI build)
+deferred. `[verified — WASM smoke passes; native tests unaffected]` — User input: chose *"Go straight
+for the animated playground — the animation is the whole point."*
+
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
 |----|----|----|----|----|----|----|----|

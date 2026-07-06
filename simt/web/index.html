@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>grove — a GPU you can program in your browser</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header>
+  <h1>grove <span class="sub">— a mini-GPU you can program in your browser</span></h1>
+  <p class="tagline">
+    Write a kernel in a tiny SIMT assembly, run it on a <b>real cycle-accurate simulator</b>
+    (compiled to WebAssembly — the same C++ engine that passes the test suite), and
+    <b>watch it execute</b>: warps issue in lockstep, memory coalesces, branches diverge,
+    and latency hides behind other warps. <a href="../docs/README.md">Learn the theory →</a>
+  </p>
+</header>
+
+<main>
+  <section class="left">
+    <div class="examples" id="examples">
+      <span class="label">examples:</span>
+      <!-- buttons injected by app.js -->
+    </div>
+    <textarea id="editor" spellcheck="false"></textarea>
+    <div class="controls-row">
+      <label>threads <input id="threads" type="number" value="32" min="1" max="256" /></label>
+      <label>mem&nbsp;latency <input id="latency" type="number" value="200" min="1" /></label>
+      <label>segment&nbsp;words <input id="segwords" type="number" value="8" min="1" /></label>
+      <button id="run" class="run">▶ Run</button>
+    </div>
+    <div id="error" class="error"></div>
+  </section>
+
+  <section class="right">
+    <div id="stats" class="stats"></div>
+    <div class="viz-head">
+      <div class="playback">
+        <button id="play">▶ play</button>
+        <button id="step">⏭ step</button>
+        <button id="reset">⏮ reset</button>
+        <label>speed <input id="speed" type="range" min="1" max="60" value="12" /></label>
+      </div>
+      <div id="cyclereadout" class="cycle">cycle —</div>
+    </div>
+    <canvas id="canvas" width="720" height="420"></canvas>
+    <div class="legend">
+      <span><i class="sw alu"></i> ALU</span>
+      <span><i class="sw mem"></i> memory</span>
+      <span><i class="sw branch"></i> branch</span>
+      <span><i class="sw idle"></i> idle lane</span>
+      <span><i class="sw diverge"></i> divergence</span>
+      <span class="hint">lit lane = active in this issue · memory strip = transactions (fewer = coalesced)</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Everything runs client-side (WASM), $0. The engine is the real
+  <code>simt_core</code>; this is Arm A of the Grove project.</span>
+</footer>
+
+<script src="simt.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

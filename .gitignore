@@ -19,3 +19,8 @@ simt/analysis/out/
 # Arm C PIM build + derived outputs
 pim/build/
 pim/out/
+
+# WASM playground build artifacts (derived — regenerate with simt/build_wasm.ps1)
+simt/web/simt.js
+simt/web/simt.wasm
+node_modules/
