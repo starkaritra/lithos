@@ -31,9 +31,8 @@ features L ≳ 64**, failing < 1.5× for low-pooling L ≲ 16). Rivals: R-tautol
 R-baseline-strawman **killed**; R-banking-tax **confirmed** as the binding limiter. Risks **C1 & C4
 resolved**, C2/C3 held (see `decisions.md` ledger + `pim/out/conclusion.md`). **Branch `exp/d017-pim`
 is NOT merged** — merge-to-main is the owner's/coderAS's call, deferred to after this verdict. **Next:
-owner/coderAS decide merge; if the Arm C write-up proceeds, first pin the target workload's
-pooling-factor distribution** (the single observation that flips conditional-GO ↔ unconditional-GO or
-NO-GO/weak).
+NO-GO/weak). **The Arm C branch has been merged to main;** a WASM browser playground for Arm A was
+built (D-020, `simt/web/`). **PAUSED here (2026-07-06)** — recorded next steps in §3a below.
 
 ## 3. What happens next (ordered)
 | # | Task | Owner | Blocking? | Status |
@@ -50,10 +49,33 @@ NO-GO/weak).
 | 7a | **Pre-register the Arm C measurement** (params, sweep, metrics, NO-GO rule) | **experimentAS** | after #7 | ✅ **done → `pim-prereg.md`, D-018.** Primary = **DMR** (baseline÷PIM off-chip bytes, counted); H1 = DMR ≥ 3× canonical + ≥ 1.5× robust + honest crossover; reduction-ratio sweep kills R-tautology; fair coalesced baseline + shared bandwidth cap; **admits an honest NO-GO** (C4) |
 | 7b | Build Arm C: bandwidth-capped model → baseline vs PIM bytes-moved on reduction, then embedding-bag; run the sweep | coderAS | after #7a | ✅ **BUILT + RUN** (branch `exp/d017-pim`, commit `e33b365`, 8/8 model tests pass). Bank+bandwidth-capped C++ byte-accounting model; canonical + full sweep; artifacts in `pim/out/` (`decision_inputs.json`, `results.csv`, `provenance.json`, 5 plots) |
 | 7c | Render GO/NO-GO verdict from artifacts (apply frozen §5 rule) | **experimentAS** | after #7b | ✅ **CONDITIONAL-GO (D-019), conf ~0.82.** Canonical DMR=2.53× (gray zone); win real but banking-limited (R-banking-tax the limiter), scoped to high-pooling features (L≳64). R-tautology/hidden-traffic/baseline-strawman killed; C1 & C4 resolved. Verdict + rival scorecard → `pim/out/conclusion.md` |
-| 7d | Decide merge of `exp/d017-pim` → main; if write-up proceeds, pin target pooling-factor distribution first | owner + coderAS | after #7c | ▶ **NEXT.** Branch not merged (deferred to owner/coderAS per pre-reg). The pooling-factor distribution is the single observation that flips conditional-GO ↔ unconditional-GO / NO-GO-weak |
+| 7d | Decide merge of `exp/d017-pim` → main; if write-up proceeds, pin target pooling-factor distribution first | owner + coderAS | after #7c | ✅ **merged to main** (fast-forward). Write-up follow-up (pin pooling-factor distribution) recorded in Next steps below |
+| 8 | **Frontend: WASM "program a GPU in your browser" playground** (Arm A demo) | owner + coderAS | after #6 | ✅ **BUILT (D-020)** — real `simt_core` → WASM (Emscripten), animated trace (warps/lanes/coalescing/divergence/stalls), client-side/$0. `simt/web/`; `web_smoke.cjs` = WASM SMOKE PASS; native tests unaffected. **Not yet deployed** (see Next steps) |
 
-**Optional Arm A extensions (not blocking Arm C):** tiled matmul (needs thread blocks + shared
-memory), a bandwidth-capped memory model, warp-shuffle reduction.
+## 3a. Next steps (recorded at pause — 2026-07-06)
+**Nothing is blocking; the A→C arc + playground are complete. Resume any of these:**
+
+*Frontend / playground (D-020) → public launch:*
+- **Visual QA** the Canvas animation in a real browser (I verified the data pipeline + serving + JS
+  syntax, not the rendered pixels) — tweak colors/layout if needed.
+- **Deploy to GitHub Pages** — decide: commit the built `simt/web/simt.{js,wasm}` (simple) vs a CI
+  build step (GitHub Actions runs `build_wasm.ps1`/emcc). Currently those artifacts are gitignored.
+- **Share-URL** that encodes the kernel in the link (for HN/Reddit sharing).
+- **Polish:** mobile layout, a real code editor (CodeMirror), more example kernels, a
+  "what am I looking at?" explainer panel; optional companion **PIM-crossover explorable** page.
+
+*Arm C write-up (if pursuing the result):*
+- **Pin the target DLRM per-feature pooling-factor distribution** vs the crossover `L*=32` — the single
+  observation that flips CONDITIONAL-GO ↔ unconditional-GO / NO-GO-weak (cite MLPerf/DLRM shapes).
+
+*Optional arm extensions (not blocking):*
+- **Arm A:** tiled matmul (needs thread blocks + shared memory), a bandwidth-capped SIMT model,
+  warp-shuffle reduction.
+- **Arm C:** an SpMV kernel (broadens the sweep's middle), a locality-aware placement study.
+
+*Housekeeping:*
+- Delete the now-merged `exp/d008-cost-model-spike` and `exp/d017-pim` branches (redundant with main).
+- Pick a real **project name** (OQ-5 — "Grove" is a placeholder).
 
 ## 4. The non-negotiables
 - **$0** — free tools only (Python now; Verilator/Icarus later). No paid hardware.
