@@ -9,3 +9,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+# C++ build output (Arm A mini-GPU)
+simt/build/

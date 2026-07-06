@@ -1,0 +1,15 @@
+# mini-GPU kernel: C[i] = A[i] + B[i]  (one word per thread)
+# Memory layout (word-addressed): A at base 0, B at base 32, C at base 64.
+# Each thread computes one element i = its global thread id.
+mov  r1, 0        # baseA
+mov  r2, 32       # baseB
+mov  r3, 64       # baseC
+tid  r0           # r0 = i
+iadd r4, r1, r0   # addrA = baseA + i
+iadd r5, r2, r0   # addrB = baseB + i
+iadd r6, r3, r0   # addrC = baseC + i
+ld   r7, r4       # a = A[i]
+ld   r8, r5       # b = B[i]
+iadd r9, r7, r8   # c = a + b
+st   r6, r9       # C[i] = c
+halt
