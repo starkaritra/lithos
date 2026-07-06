@@ -24,6 +24,12 @@ Arm A exposes the **memory wall**; **Arm C** (later) builds near-memory/PIM to s
 `mov rd,imm` · `tid rd` · `iadd rd,ra,rb` · `imul rd,ra,rb` · `ld rd,ra` (rd=mem[ra]) ·
 `st ra,rb` (mem[ra]=rb) · `halt`. Word-addressed memory; 16 int32 registers per lane.
 
+## Learn the theory: `docs/`
+This project doubles as a **GPU-architecture course**. The [`docs/`](docs/README.md) folder
+teaches the *why/how* behind every mechanism here — SIMT, latency hiding, coalescing,
+divergence, cycle-accurate simulation, and ISA design — each chapter tying theory to this
+code and to a number you can reproduce. Start at [`docs/README.md`](docs/README.md).
+
 ## Build & run ($0 — VS 2022 Build Tools: MSVC + bundled CMake + Ninja)
 From a shell where `vcvars64.bat` has been sourced (see the repo's build note):
 ```
