@@ -7,35 +7,37 @@ For decisions see `decisions.md`; for the design see `architecture.md`; for rese
 ---
 
 ## 1. One-line mission
-Build a from-scratch **EDGE dataflow processor** (ISA + compiler + cycle-accurate sim, $0) as the
-**first open, minimal, readable, reproducible full-stack EDGE implementation with a measured result**.
-*(Note: the original AI/tree-inference win framing was tested and retired — D-014 NO-GO; see §2. The
-mission is now the general-purpose EDGE contribution, pending the discussAS re-frame.)*
+**Application-driven, $0, from-scratch computer-architecture build to LEARN GPU architecture (and solve
+a real bottleneck).** Two arms — **A→C**: (A) build a mini-**GPU (SIMT)** core + minimal ISA + tiny
+CUDA-like compiler + cycle-accurate sim that runs real parallel kernels and *exposes the memory wall*;
+(C) build a **near-memory / PIM** architecture + ISA that *solves* it and **measures** the data-movement
+win. North star = *application-based learning + a use-case-driven contribution* (D-015).
+*(History: the project began as an EDGE dataflow accelerator for XGBoost tree-inference; that thesis was
+pre-registered, tested, and retired — D-014 NO-GO. The EDGE/dataflow + cycle-accurate-sim + measurement
+discipline carries over. See §2.)*
 
-## 2. Current state — SPIKE COMPLETE → **NO-GO**; ML framing retired, re-frame pending
-Direction was locked (D-004…D-007) **conditional on the de-risk spike (D-008)**. The spike has now run.
-**Update (2026-07-06):** designed & pre-registered (D-012, `spike-prereg.md`); coderAS built the rig;
-a pre-data fairness bug on the synthetic smoke (ρ structurally < 1) was fixed by timestamped
-**Amendment A1** (D-013) before any canonical data; coderAS implemented A1 (17 tests) and ran canonical
-HIGGS. **Outcome: NO-GO (D-014)** — primary ρ = 0.84 (< 1.5×), overhead-free ceiling only 1.92× (< 2×),
-rival R-A confirmed (predictable branches → a branchless N-wide scalar harvests the same cross-tree
-parallelism EDGE offers). **R7 retired.** The EDGE core is unaffected; only the ML/tree-inference
-use-case narrative is dropped. **Next: discussAS re-frames to a general-purpose open full-stack EDGE
-contribution** (D-004/D-005/D-009), no GBDT/AI win claim. Full reasoning: `spike/out/conclusion.md`.
-**Do NOT start the simulator on the ML thesis** — the gate returned NO-GO by design.
+## 2. Current state — PIVOTED (post-NO-GO). Direction locked, v1 scoping open.
+The original EDGE/tree-inference thesis (D-004…D-007) was gated on a de-risk spike (D-008); the spike
+**ran and returned NO-GO** (D-012 pre-reg → D-013 Amendment A1 → **D-014 NO-GO**: canonical HIGGS
+ρ = 0.84 < 1.5×, overhead-free ceiling only 1.92×, rival R-A confirmed; R7 retired; full reasoning in
+`spike/out/conclusion.md`). The owner then rejected both the general-purpose-EDGE fallback (fails the
+novelty/use-case bar) and a novelty-free playground, and chose the **A→C arc (D-015)**: a mini-GPU that
+exposes the memory wall, then PIM that solves it. **Arm A = v1, Arm C = v2.** `architecture.md` is being
+re-scoped from "EDGE tree accelerator" to "mini-GPU (SIMT) → PIM"; the spike rig (`spike/`) is a
+completed, self-contained negative-result artifact. **Next: settle v1 scope (OQ-6..OQ-9) then build
+Arm A.**
 
 ## 3. What happens next (ordered)
 | # | Task | Owner | Blocking? | Status |
 |---|------|-------|-----------|--------|
-| 1 | Design + pre-register the cost-model spike | **experimentAS** (`handoffs/experimentAS-handoff.md`) | — | ✅ done → `spike-prereg.md`, D-012 |
-| 2 | Implement the cost model + run it | **coderAS** (`handoffs/coderAS-handoff.md`, Stage A) | after #1 | ✅ rig built + A1 (D-013) implemented (17 tests) + canonical HIGGS run |
+| 1 | Design + pre-register the cost-model spike | **experimentAS** | — | ✅ done → `spike-prereg.md`, D-012 |
+| 2 | Implement the cost model + run it | **coderAS** (Stage A) | after #1 | ✅ rig built + A1 (D-013) + canonical HIGGS run |
 | 3 | Analyse → **GO / NO-GO** decision | experimentAS | after #2 | ✅ **NO-GO (D-014)** → `spike/out/conclusion.md` |
-| 4 | *If GO:* phased EDGE sim build | coderAS (Stage B) | after #3 = GO | ✖ not triggered (spike = NO-GO) |
-| 4' | ***NO-GO:* drop ML framing, pursue general-purpose EDGE** | **discussAS re-frame** | after #3 = NO-GO | ▶ **ACTIVE — next action** |
-| 5 | *(optional)* Covertype confirmatory robustness re-run | coderAS | — | optional; documents external validity of NO-GO |
-
-**The gate returned NO-GO.** Do not build the simulator on the tree-inference thesis; the next move is
-the discussAS re-frame to a general-purpose EDGE contribution.
+| — | ~~*If GO:* EDGE sim build~~ / ~~*NO-GO:* general-purpose EDGE~~ | — | — | ✖ superseded by the D-015 pivot |
+| 4 | **Pivot to the A→C arc (mini-GPU → PIM)** | owner + coderAS | after #3 | ✅ decided (D-015) |
+| 5 | **Settle v1 (Arm A) scope: ISA + kernel lang + first kernels + stack** (OQ-6,7,9) | **coderAS** (+owner sign-off) | after #4 | ▶ **ACTIVE — next action** |
+| 6 | Build Arm A v1: SIMT sim + compiler + kernels; instrument divergence/coalescing/occupancy | coderAS | after #5 | ⏳ pending scope |
+| 7 | Arm C v2: PIM model + ISA on a memory-bound kernel; measure data-movement win (OQ-8) | coderAS | after #6 | ⏳ later |
 
 ## 4. The non-negotiables
 - **$0** — free tools only (Python now; Verilator/Icarus later). No paid hardware.
