@@ -229,6 +229,41 @@ research + commercial area]`
   the stronger of branchy (data-grounded p_mis) and branchless variants; OoO comparison out of scope.
 - **OQ-5** — Project name (Grove is a placeholder). *(Still open.)*
 
+---
+
+**D-018 — Arm C measurement pre-registered (near-memory / PIM data-movement study).** experimentAS
+pre-registered the Arm C measurement in **`pim-prereg.md`** before any number is generated (mirrors the
+spike's pre-reg discipline; append-only-from-data; amend-with-timestamp if unimplementable). Key
+commitments:
+- **Primary quantity = DMR (data-movement reduction) = off-chip link bytes(baseline GPU) ÷ off-chip
+  link bytes(PIM)**, same kernel/data/bandwidth-cap for both. Bytes are *counted*, not modelled
+  (`[modelled-exact]`) — this makes the primary metric assumption-free (mitigates C3). Reported as an
+  effect-size **range** + the **crossover**, never a hero number.
+- **H1:** DMR ≥ 3× at the canonical DLRM config **and** ≥ 1.5× across the realistic sweep **and** the
+  crossover sits outside the realistic regime. **H0:** DMR < 1.5× once *all* link traffic is counted, or
+  the useful regime is an implausible corner. **Rivals to kill:** R-tautology (aggregation trivially
+  sends less → killed by the reduction-ratio sweep + naive-vs-honest DMR + mandatory crossover),
+  R-hidden-traffic (indices + `k(L,B)` per-bag partials + output erase the win → charged to both sides),
+  R-baseline-strawman (baseline is the *coalesced byte floor* — moves each byte once), R-banking-tax
+  (more banks → more partials → smaller byte-win; surfaced, decided at realistic `B`).
+- **Fair baseline (anti-rig spine):** a competent coalesced Arm-A GPU that moves each needed byte
+  exactly once, under the **same single off-chip bandwidth cap** as PIM (closes the `simt/docs/09`
+  missing-bandwidth-ceiling gap with ONE shared cap — no DRAM model, per C2).
+- **Anti-tautology core (C1):** a reduction-ratio sweep over pooling factor `L` (pure-gather `L=1` →
+  aggressive `L≫B`), reporting the crossover `L*` where DMR falls to 1.5×, with real DLRM params placed
+  relative to it. The honest DMR = `L / k(L,B)` (banking factor `k` = distinct banks a bag touches), far
+  below the naive `1/RR = L` line — the gap is the evidence it is not a definitional win.
+- **Decision rule admits an honest NO-GO (C4):** GO (write up Arm C) iff canonical DMR ≥ 3× + robust
+  ≥ 1.5× + crossover-honest; NO-GO/weak iff < 1.5× once fully counted or the useful regime is a narrow
+  corner; gray [1.5×,3×) → diagnose the binding limiter + name the un-killed rival + decide with stated
+  confidence. Kernels: reduction (de-risk smoke + tautological endpoint, **not** the decision kernel) →
+  embedding-bag sum-pooling (headline, the decision kernel) → optional SpMV. Secondary = modelled energy
+  (Horowitz ~160 pJ/byte, swept {50,160,640}, framed as an *upper bound* on PIM's advantage — C3).
+- **Stack/repro (D-016):** C++ bank/bandwidth/byte-counter core + Python sweep/analysis; one-command run;
+  seeds + `provenance.json`; build on dedicated local branch **`exp/d017-pim`** (all Arm C runs share it).
+`[believed — experimentAS design]` Resolves the OQ-8 measurement plan. **Next:** coderAS builds to
+`pim-prereg.md`; experimentAS renders GO/NO-GO from the returned `decision_inputs.json`.
+
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
 |----|----|----|----|----|----|----|----|
@@ -237,7 +272,7 @@ research + commercial area]`
 | R6 | AI angle is DL-training (not deliverable by EDGE) | [verified] | — | — | — | Accepted tree-inference framing instead | retired |
 | R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **RETIRED → NO-GO (D-014).** Canonical HIGGS ρ=0.84 (<1.5×); overhead-free ceiling only 1.92× (<2×); rival R-A confirmed (predictable branches → branchless N-wide scalar harvests the same parallelism). ML framing dropped; general-purpose EDGE fallback (→ discussAS) |
 | R8 | "Fixed-function FPGA beats you" critique | [believed] | M | M | no | Frame as programmability + open stack (D-010) | open |
-| C1 | Arm C PIM win is a construction tautology (aggregation trivially sends less) | [believed] | H | H | no | Reduction-ratio sweep: show where PIM wins AND fails (crossover) | open — designed around (D-017) |
-| C2 | Over-scoping the DRAM model (refresh/row-buffers) sinks Arm C | [believed] | M | H | no | Minimal bank + single bandwidth cap only | park the rest (D-017) |
-| C3 | Arm C win rests entirely on the energy-per-byte assumption | [believed] | M | M | no | Report bytes-moved (assumption-free) as the primary metric | mitigated (D-017) |
-| C4 | Arm C PIM byte-reduction is marginal even for aggregation → no honest win | [guess] | L | H | no | experimentAS pre-registered measurement admits a NO-GO | open — the gate |
+| C1 | Arm C PIM win is a construction tautology (aggregation trivially sends less) | [believed] | H | H | no | Reduction-ratio sweep: show where PIM wins AND fails (crossover) | **pre-registered / awaiting build (D-018).** Sweep over `L` + naive-vs-honest DMR + mandatory crossover `L*`; DMR = `L/k(L,B)` ≪ naive `L`; decision kernel is embedding-bag, not reduction |
+| C2 | Over-scoping the DRAM model (refresh/row-buffers) sinks Arm C | [believed] | M | H | no | Minimal bank + single bandwidth cap only | park the rest (D-017); ONE shared bandwidth cap only, no refresh/row-buffers (D-018 §2.3) |
+| C3 | Arm C win rests entirely on the energy-per-byte assumption | [believed] | M | M | no | Report bytes-moved (assumption-free) as the primary metric | mitigated (D-017); primary = counted bytes (`[modelled-exact]`); energy secondary, `e` swept, framed as upper bound (D-018 §2.4) |
+| C4 | Arm C PIM byte-reduction is marginal even for aggregation → no honest win | [guess] | L | H | no | experimentAS pre-registered measurement admits a NO-GO | **pre-registered / awaiting build (D-018).** GO iff canonical DMR ≥ 3× + robust ≥ 1.5× + honest crossover; explicit NO-GO if < 1.5× once fully counted or regime is a narrow corner |

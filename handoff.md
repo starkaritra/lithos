@@ -39,8 +39,8 @@ Arm A.**
 | 6 | Build Arm A v1: SIMT sim + compiler + kernels; instrument divergence/coalescing/occupancy | coderAS | after #5 | ✅ SIMT spine, divergence, reduction; latency-hiding/coalescing/divergence/memory-wall all measured + a 9-chapter GPU-arch course (`simt/docs/`) |
 | 6b | Expose the memory wall (the forcing function for Arm C) | coderAS | after #6 | ✅ measured: one access ≈ 225 arith ops (`cycles=451+K`); scattered gather = 6 instrs / 900 cyc / 64 txns. `simt/docs/09` |
 | 7 | Arm C v2: PIM model + ISA on a memory-bound kernel; measure data-movement win (OQ-8) | coderAS (+ discussAS/experimentAS to scope) | after #6b | ✅ **scoped (D-017)** — bank+bandwidth-capped model, ~6-op PIM ISA, headline = embedding-bag (A) + reduction de-risk (B) + reduction-ratio sweep (D); metric = off-chip bytes moved (+energy). New `pim/` module. |
-| 7a | **Pre-register the Arm C measurement** (params, sweep, metrics, NO-GO rule) | **experimentAS** | after #7 | ▶ **NEXT — before any numbers** |
-| 7b | Build Arm C: bandwidth-capped model → baseline vs PIM bytes-moved on reduction, then embedding-bag; run the sweep | coderAS | after #7a | ⏳ pending pre-reg |
+| 7a | **Pre-register the Arm C measurement** (params, sweep, metrics, NO-GO rule) | **experimentAS** | after #7 | ✅ **done → `pim-prereg.md`, D-018.** Primary = **DMR** (baseline÷PIM off-chip bytes, counted); H1 = DMR ≥ 3× canonical + ≥ 1.5× robust + honest crossover; reduction-ratio sweep kills R-tautology; fair coalesced baseline + shared bandwidth cap; **admits an honest NO-GO** (C4) |
+| 7b | Build Arm C: bandwidth-capped model → baseline vs PIM bytes-moved on reduction, then embedding-bag; run the sweep | coderAS | after #7a | ▶ **UNBLOCKED — build to `pim-prereg.md`.** Order: shared bandwidth-capped bank model → reduction de-risk slice → embedding-bag headline → reduction-ratio sweep. C++ core + Python analysis (D-016), $0, branch `exp/d017-pim` |
 
 **Optional Arm A extensions (not blocking Arm C):** tiled matmul (needs thread blocks + shared
 memory), a bandwidth-capped memory model, warp-shuffle reduction.
@@ -67,6 +67,7 @@ general-purpose EDGE novelty defense (R2 absence-claim, R8 fixed-function-FPGA c
 - Design: `architecture.md`
 - Decisions/ADRs: `decisions.md`
 - **Spike pre-registration (the D-008 gate design): `spike-prereg.md`** ← build Stage A to this
+- **Arm C pre-registration (the D-017 PIM measurement): `pim-prereg.md`** ← build Arm C to this (D-018)
 - Spike brief: `handoffs/experimentAS-handoff.md`
 - Build brief: `handoffs/coderAS-handoff.md`
 - Evidence: `research/landscape.md`, `research/usecase.md`
