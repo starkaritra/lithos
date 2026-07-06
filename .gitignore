@@ -12,3 +12,6 @@ venv/
 
 # C++ build output (Arm A mini-GPU)
 simt/build/
+
+# Analysis layer plots/CSV (derived — regenerate with analysis/sweep.py)
+simt/analysis/out/
