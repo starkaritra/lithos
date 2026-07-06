@@ -183,6 +183,33 @@ void test_divergence() {
     CHECK(cd.stats().cycles > cu.stats().cycles);
 }
 
+// Tree reduction: sum mem[0..31] into mem[0]. Cross-thread communication via global
+// memory, warp-synchronous (lockstep = implicit barrier). Every step halves the active
+// lanes, so every step diverges.
+std::string reduction_kernel() {
+    std::string k = "tid r0\n";
+    for (int stride : {16, 8, 4, 2, 1}) {
+        const std::string j = "j" + std::to_string(stride);
+        k += "mov r10, " + std::to_string(stride) + "\n";
+        k += "slt r1, r0, r10\n";
+        k += "bra r1, " + j + ", " + j + "\n";
+        k += "iadd r2, r0, r10\nld r3, r0\nld r4, r2\niadd r5, r3, r4\nst r0, r5\n";
+        k += "jmp " + j + "\n" + j + ":\n";
+    }
+    return k + "halt\n";
+}
+
+void test_reduction() {
+    auto prog = simt::assemble(reduction_kernel());
+    simt::GlobalMemory mem(64);
+    int expected = 0;
+    for (int i = 0; i < 32; ++i) { mem.store(i, i); expected += i; }  // 0+1+...+31 = 496
+    simt::Core core(prog, mem);
+    core.run(32);
+    CHECK(mem.load(0) == expected);                 // correct cross-thread sum
+    CHECK(core.stats().divergent_branches == 5);    // every one of the 5 steps diverges
+}
+
 }  // namespace
 
 int main() {
@@ -192,6 +219,7 @@ int main() {
     test_latency_hiding();
     test_assembler_errors();
     test_divergence();
+    test_reduction();
 
     if (g_failures == 0) {
         std::cout << "all mini-GPU tests passed\n";

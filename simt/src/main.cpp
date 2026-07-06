@@ -124,6 +124,9 @@ int main(int argc, char** argv) {
         for (int i = 0; i < n; ++i)
             if (mem.load(64 + i) != 3 * i) ok = false;
         std::cout << "result        : " << (ok ? "PASS (C[i] == 3*i)" : "FAIL") << "\n";
+    } else if (path.find("reduction") != std::string::npos) {
+        std::cout << "reduced sum   : mem[0] = " << mem.load(0)
+                  << "   (sum of A[0..n) = " << (static_cast<long>(n) * (n - 1)) / 2 << ")\n";
     }
     return 0;
 }

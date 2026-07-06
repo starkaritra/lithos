@@ -41,6 +41,7 @@ same skeleton:
 | 05 | [Branch Divergence](05-branch-divergence.md) | Why a single `if` can halve a warp's throughput — the effect that shapes what GPUs are good at. |
 | 06 | [Cycle-Accurate Simulation](06-cycle-accurate-simulation.md) | What "cycle-accurate" means, the simulator taxonomy, and a full hand-derivation of our 681-cycle result. |
 | 07 | [The ISA & Assembler](07-isa-and-assembler.md) | How a kernel becomes instructions, and how our minimal instruction set compares to real PTX/SASS. |
+| 08 | [Reduction & Cross-Thread Communication](08-reduction-and-communication.md) | How independent threads combine into one answer — tree reduction, warp-synchronous sync, and why reduction diverges. |
 | — | [Glossary](glossary.md) | Every term, defined once in plain words. |
 | — | [References](references.md) | The full, real bibliography. |
 

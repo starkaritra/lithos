@@ -1,0 +1,74 @@
+# Tree reduction: sum mem[0..31] into mem[0].  (One warp, 32 lanes.)
+#
+# Warp-synchronous: because all 32 lanes execute in lockstep, each instruction finishes
+# for every active lane before the next begins — that IS an implicit barrier, so no
+# explicit sync is needed within one warp. (Multi-warp reduction WOULD need shared memory
+# + a barrier; see docs/08.)
+#
+# Each step halves the count of participating lanes (tid < stride), so EVERY step diverges:
+# a known inefficiency of GPU tree reduction — late steps leave most of the warp idle.
+#
+#   for stride in {16,8,4,2,1}:
+#       if (tid < stride):  mem[tid] += mem[tid + stride]
+tid r0
+
+# --- stride 16 ---
+mov  r10, 16
+slt  r1, r0, r10
+bra  r1, j16, j16        # participants (tid<16) do the add; others skip to join
+iadd r2, r0, r10         # partner = tid + stride
+ld   r3, r0              # mem[tid]
+ld   r4, r2              # mem[tid+stride]
+iadd r5, r3, r4
+st   r0, r5              # mem[tid] = mem[tid] + mem[tid+stride]
+jmp  j16
+j16:
+
+# --- stride 8 ---
+mov  r10, 8
+slt  r1, r0, r10
+bra  r1, j8, j8
+iadd r2, r0, r10
+ld   r3, r0
+ld   r4, r2
+iadd r5, r3, r4
+st   r0, r5
+jmp  j8
+j8:
+
+# --- stride 4 ---
+mov  r10, 4
+slt  r1, r0, r10
+bra  r1, j4, j4
+iadd r2, r0, r10
+ld   r3, r0
+ld   r4, r2
+iadd r5, r3, r4
+st   r0, r5
+jmp  j4
+j4:
+
+# --- stride 2 ---
+mov  r10, 2
+slt  r1, r0, r10
+bra  r1, j2, j2
+iadd r2, r0, r10
+ld   r3, r0
+ld   r4, r2
+iadd r5, r3, r4
+st   r0, r5
+jmp  j2
+j2:
+
+# --- stride 1 ---
+mov  r10, 1
+slt  r1, r0, r10
+bra  r1, j1, j1
+iadd r2, r0, r10
+ld   r3, r0
+ld   r4, r2
+iadd r5, r3, r4
+st   r0, r5
+jmp  j1
+j1:
+halt

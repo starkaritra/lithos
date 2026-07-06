@@ -111,4 +111,17 @@ core + Python scripting is the pattern our project mirrors (decision D-016).
 **PIM / near-memory computing** — Processing-In-Memory: moving compute *into or beside* memory
 to beat the memory wall. The subject of Grove's **Arm C** (the "solve" to Arm A's "expose").
 
+**Reduction** — combining many values into one (sum, max, count…). Done as a **tree** in
+`log₂(n)` steps to expose parallelism; requires cross-thread communication. (See
+[ch. 08](08-reduction-and-communication.md).)
+
+**Warp-synchronous** — relying on a warp's 32 lanes running in lockstep, so instructions are
+implicitly ordered/synchronized *within* a warp (no explicit barrier needed).
+
+**Barrier / `__syncthreads()`** — an explicit point where all threads in a block wait for one
+another; needed for correct cross-*warp* communication (warps otherwise run asynchronously).
+
+**Shared memory** — a small, fast, on-chip scratchpad shared by a block's warps; the usual
+medium for cross-thread communication in reductions and tiled algorithms. (A future slice.)
+
 → Back to [index](README.md)
