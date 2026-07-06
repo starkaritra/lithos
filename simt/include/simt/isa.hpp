@@ -1,5 +1,5 @@
 #pragma once
-// Grove Arm A — mini-GPU (SIMT) instruction set (v1, minimal by design, D-015/OQ-6).
+// Lithos Arm A — mini-GPU (SIMT) instruction set (v1, minimal by design, D-015/OQ-6).
 // A tiny register-based ISA executed per-warp in lockstep. Kept small on purpose:
 // just enough to run real parallel kernels (vector-add -> reduction -> matmul) and
 // expose GPU microarchitecture effects. Branch/predicate ops arrive with the

@@ -1,4 +1,4 @@
-"""One-command entry point for the Grove D-008 cost-model spike.
+"""One-command entry point for the Lithos D-008 cost-model spike.
 
     python spike/run.py --config spike/config.yaml         # canonical (HIGGS)
     python spike/run.py --smoke                            # fast offline smoke
@@ -57,7 +57,7 @@ def _write_csv(rows: list[dict], path: str) -> None:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Grove D-008 cost-model spike")
+    ap = argparse.ArgumentParser(description="Lithos D-008 cost-model spike")
     ap.add_argument("--config", default=os.path.join(os.path.dirname(__file__),
                                                      "config.yaml"))
     ap.add_argument("--smoke", action="store_true",

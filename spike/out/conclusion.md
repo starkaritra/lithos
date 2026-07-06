@@ -1,4 +1,4 @@
-# Grove D-008 spike — CONCLUSION: **NO-GO** (drop the ML/tree-inference framing)
+# Lithos D-008 spike — CONCLUSION: **NO-GO** (drop the ML/tree-inference framing)
 
 - **Experiment:** D-008 cost-model de-risk — "is XGBoost batch-1 inference control-bound & on-chip enough for an EDGE core to beat an equal-resource scalar by a portfolio-worthy margin?"
 - **Pre-registration:** `spike-prereg.md` §0–§10 + **Amendment A1** (D-013, pre-data engine-fairness fix)

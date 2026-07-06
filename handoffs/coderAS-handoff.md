@@ -1,4 +1,4 @@
-# Handoff → coderAS: build Grove
+# Handoff → coderAS: build Lithos
 
 Two stages. **Stage A is gated in front of everything else.** Do **not** start Stage B (the
 simulator) until experimentAS's spike (Stage A) returns **GO**. Full context: `../handoff.md`,
@@ -39,19 +39,19 @@ Follow `architecture.md` §7. Each phase must ship something measurable; scope e
 ### Phase 1 — Substrate + hand-written blocks (early win, NO compiler)
 - Build a **cycle-accurate** model of: a small **ALU tile grid**, the **operand network**, and a
   **block sequencer**. Instructions fire when operands arrive; blocks commit atomically.
-- **Hand-write** Grove blocks for a small tree traversal.
+- **Hand-write** Lithos blocks for a small tree traversal.
 - **Prove:** sustained instructions/cycle **>** an equal-resource **scalar RISC-V** baseline on the
   same computation. If there's no ILP gain here, **stop and report** — cheaply.
 
 ### Phase 2 — Dynamic extension + minimal compiler (the crux + the novelty)
 - Implement the extension (`architecture.md` §4): **data-dependent next-block dispatch**,
   **Monsoon-style token tagging** (concurrent independent traversals), **on-chip indexed feature-load**.
-- Write a **minimal compiler** that ingests a **real XGBoost model dump** and emits Grove blocks
+- Write a **minimal compiler** that ingests a **real XGBoost model dump** and emits Lithos blocks
   (each tree node → a compare-and-route block; ensemble → tagged, interleaved traversals; leaves → a
   score reduction). Scope the front-end to *"a tree ensemble,"* **not** a general language (OQ-3).
 
 ### Phase 3 — End-to-end measurement (the deliverable)
-- Run Grove vs the scalar RISC-V baseline (**and** a GPU-sim baseline if feasible) on a real ensemble.
+- Run Lithos vs the scalar RISC-V baseline (**and** a GPU-sim baseline if feasible) on a real ensemble.
 - Report the pre-registered claim with **effect sizes + a sensitivity range** (not a single number).
 - Confirm the working set stays **on-chip**. Make the whole run **reproducible with one command**.
 

@@ -1,8 +1,8 @@
-# Handoff → experimentAS: the Grove de-risk spike
+# Handoff → experimentAS: the Lithos de-risk spike
 
 **You own the design.** This brief gives you the mission, constraints, and a *draft* decision rule.
 Refine it, pre-register it, get it approved, then delegate the implementation to coderAS
-(`coderAS-handoff.md`, Stage A) and analyse the result. Do **not** let Grove's simulator get built
+(`coderAS-handoff.md`, Stage A) and analyse the result. Do **not** let Lithos's simulator get built
 until this spike returns **GO**.
 
 Full context: `../handoff.md`, `../architecture.md`, `../decisions.md` (esp. **D-006, D-008**),
@@ -11,7 +11,7 @@ Full context: `../handoff.md`, `../architecture.md`, `../decisions.md` (esp. **D
 ---
 
 ## 1. Why this spike exists (the one-way door it guards)
-Grove's entire AI thesis rests on one empirical assumption: **decision-tree ensemble (XGBoost)
+Lithos's entire AI thesis rests on one empirical assumption: **decision-tree ensemble (XGBoost)
 inference is control-bound with a small on-chip working set**, so an EDGE dataflow core can extract
 far more parallelism per cycle than a scalar CPU and win where GPUs stall on divergence. If that's
 false (e.g. the workload spills to memory, or dispatch/gather overhead dominates), we'd waste months
@@ -66,5 +66,5 @@ Build a Python **analytical cost model** over a **real, trained XGBoost model** 
 4. Append the outcome as a new ADR in `../decisions.md` and update the status table in `../handoff.md`.
 
 ## 7. Definition of done
-A reproducible ($0) result that either **greenlights** the Grove build with an evidence-backed
+A reproducible ($0) result that either **greenlights** the Lithos build with an evidence-backed
 expected win, or **kills the ML framing** cheaply — with the reasoning recorded so it isn't re-litigated.

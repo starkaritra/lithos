@@ -1,4 +1,4 @@
-# Grove — Arm C Pre-Registration (near-memory / PIM data-movement measurement)
+# Lithos — Arm C Pre-Registration (near-memory / PIM data-movement measurement)
 
 **Status:** pre-registered / awaiting build. **Owner:** experimentAS (design) → coderAS (build).
 **Anchor decision:** `decisions.md` D-015 (A→C arc), D-016 (C++ core + Python analysis),

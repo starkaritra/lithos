@@ -1,10 +1,10 @@
-"""Grove Arm C — PIM data-movement analysis layer (pim-prereg.md §8/§9).
+"""Lithos Arm C — PIM data-movement analysis layer (pim-prereg.md §8/§9).
 
 Drives the C++ byte-accounting core (`build/pim(.exe)`) across the pre-registered sweep,
 computes DMR + the reduction-ratio crossover, and emits the deliverables experimentAS needs
 to render GO / NO-GO:  results.csv, the honesty plots, decision_inputs.json, provenance.json.
 
-Run:  python pim/run.py --config pim/config.yaml     (from the grove/ or pim/ directory)
+Run:  python pim/run.py --config pim/config.yaml     (from the repo root or pim/ directory)
 Everything is [modelled]; the primary DMR is [modelled-exact] (bytes counted, not estimated).
 """
 from __future__ import annotations

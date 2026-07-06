@@ -61,7 +61,7 @@ years are given so you can find them).
   memory-wall motivation.
 - **UPMEM** PIM architecture; **Samsung HBM-PIM** — real commercial near-memory systems.
 
-## Grove project documents (internal)
+## Lithos project documents (internal)
 - `../../decisions.md` — architecture decision records (esp. D-006, D-014 the spike NO-GO,
   D-015 the A→C pivot, D-016 the C++/Python stack).
 - `../../handoff.md` — project state and roadmap.

@@ -1,4 +1,4 @@
-# Grove mini-GPU — browser playground
+# Lithos mini-GPU — browser playground
 
 **Program a GPU in your browser.** Write a kernel in the tiny SIMT assembly, run it on the
 **real cycle-accurate `simt_core` engine** (compiled to WebAssembly — the same C++ that passes

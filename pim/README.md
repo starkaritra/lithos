@@ -1,4 +1,4 @@
-# Grove — Arm C: near-memory / PIM (does compute-in-memory beat the memory wall?)
+# Lithos — Arm C: near-memory / PIM (does compute-in-memory beat the memory wall?)
 
 **Arm A** (`../simt/`) built a mini-GPU and *measured* that memory-bound kernels stall on the
 memory wall. **Arm C** asks the follow-up: if we put small compute units **inside the memory

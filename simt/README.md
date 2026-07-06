@@ -1,4 +1,4 @@
-# Grove — Arm A: a mini-GPU (SIMT) you can measure
+# Lithos — Arm A: a mini-GPU (SIMT) you can measure
 
 A from-scratch, cycle-accurate **SIMT** (Single-Instruction, Multiple-Thread) core —
 the execution model real GPUs use. You write a tiny kernel, it compiles to a small

@@ -138,7 +138,7 @@ Arm C's result.
   *Probability and Computing*).
 - S. Ghose et al., "Processing-in-Memory: A Workload-Driven Perspective," *IBM J. R&D*, 2019 (placement
   and bank-level concerns in real PIM).
-- Grove: `../../pim-prereg.md` §3 (the `k(L,B)` definition + role), `../src/model.cpp`
+- Lithos: `../../pim-prereg.md` §3 (the `k(L,B)` definition + role), `../src/model.cpp`
   (`closed_form_k`, empirical sampling).
 
 → Previous: [04 — Byte-Accounting & the DMR](04-byte-accounting-and-dmr.md) · Next: [06 — The Crossover & Honest Science](06-the-crossover-and-honest-science.md)

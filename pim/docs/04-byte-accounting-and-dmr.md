@@ -126,6 +126,6 @@ the naive `L = 40`. Onward to why.
 - S. Williams et al., "Roofline," *CACM*, 2009 (data movement as the performance axis).
 - M. Naumov et al., "Deep Learning Recommendation Model for Personalization and Recommendation Systems
   (DLRM)," arXiv:1906.00091, 2019 (the embedding-bag workload).
-- Grove: `../../pim-prereg.md` §2 (DMR + guardrails), §3 (the accounting), `../src/model.cpp`.
+- Lithos: `../../pim-prereg.md` §2 (DMR + guardrails), §3 (the accounting), `../src/model.cpp`.
 
 → Previous: [03 — The Bank Model & a Fair Fight](03-the-bank-model-and-fairness.md) · Next: [05 — The Banking Factor `k`](05-the-banking-factor-k.md)

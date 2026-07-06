@@ -1,4 +1,4 @@
-# Grove Arm A — GPU Architecture, Learned by Building One
+# Lithos Arm A — GPU Architecture, Learned by Building One
 
 Welcome. This folder is a **course**, not just documentation. It teaches you how a GPU
 actually works by walking through a real, cycle-accurate **mini-GPU** you can read, run,
@@ -49,7 +49,7 @@ same skeleton:
 ---
 
 ## The bigger arc (where this is going)
-This mini-GPU is **Arm A** of Grove. Its job is to teach GPU architecture *and* to expose,
+This mini-GPU is **Arm A** of Lithos. Its job is to teach GPU architecture *and* to expose,
 by measurement, the single biggest bottleneck in modern computing: the **memory wall** —
 processors are starved waiting for data. **Arm C** (later) builds a **near-memory / PIM**
 (Processing-In-Memory) architecture that attacks that wall, and measures the win. So the

@@ -1,5 +1,5 @@
 #pragma once
-// Grove Arm C — near-memory / PIM data-movement model (pim-prereg.md §3).
+// Lithos Arm C — near-memory / PIM data-movement model (pim-prereg.md §3).
 //
 // This is a byte-accounting model, NOT silicon and not cycle-accurate: for a given
 // kernel + config it COUNTS the off-chip link bytes moved by (a) a competent coalesced

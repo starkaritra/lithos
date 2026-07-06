@@ -13,7 +13,7 @@ optimize for high throughput. (See [ch. 01](01-why-gpus.md).)
 
 **Memory wall** — the large and growing gap between how fast processors compute and how fast
 memory can supply data; processors spend much of their time *waiting* for memory. The central
-problem GPUs (and Grove's Arm C) are built to fight. (Wulf & McKee, 1995.)
+problem GPUs (and Lithos's Arm C) are built to fight. (Wulf & McKee, 1995.)
 
 **DRAM** — the large, slow, off-chip main memory. An access costs hundreds of cycles.
 
@@ -117,7 +117,7 @@ circuit; the most detailed, slowest simulation level.
 core + Python scripting is the pattern our project mirrors (decision D-016).
 
 **PIM / near-memory computing** — Processing-In-Memory: moving compute *into or beside* memory
-to beat the memory wall. The subject of Grove's **Arm C** (the "solve" to Arm A's "expose").
+to beat the memory wall. The subject of Lithos's **Arm C** (the "solve" to Arm A's "expose").
 
 **Reduction** — combining many values into one (sum, max, count…). Done as a **tree** in
 `log₂(n)` steps to expose parallelism; requires cross-thread communication. (See

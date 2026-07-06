@@ -117,7 +117,7 @@ flowchart TD
     D --> G["Memory hierarchy<br/>(caches / shared mem)"]
 ```
 
-**This is also the thesis of the whole Grove project.** Arm A (this mini-GPU) will let you
+**This is also the thesis of the whole Lithos project.** Arm A (this mini-GPU) will let you
 *measure* the wall: you'll see arithmetic-heavy kernels fly and memory-heavy kernels stall.
 Arm C then attacks the wall directly by moving compute *into* memory (PIM). The wall is not
 a footnote — it's the plot.

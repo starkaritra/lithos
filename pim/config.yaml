@@ -1,4 +1,4 @@
-# Grove Arm C — PIM data-movement measurement config (pim-prereg.md §6).
+# Lithos Arm C — PIM data-movement measurement config (pim-prereg.md §6).
 # Frozen with pim-prereg.md. Canonical = the decision point; sweep = robustness + the
 # reduction-ratio crossover. No threshold moves after data is generated (§10).
 seed: 42

@@ -1,4 +1,4 @@
-# Grove — Decision Log (ADRs)
+# Lithos — Decision Log (ADRs)
 
 Each entry is a decision, its rationale, and its status. Confidence tags:
 `[verified]` = checked against a primary source · `[believed]` = reasoned inference · `[guess]` = low grounding.
@@ -61,10 +61,10 @@ tree pipeline that beats your programmable core?"* Our only honest defense: **pr
 generality** (one fabric for trees *and* other control-heavy code) + the **open full-stack**
 contribution. If we can't defend that, novelty shrinks — keep this in view. `[believed]`
 
-**D-011 — Parked next project.** After Grove: an **"AI-architecture-bottleneck-focused"** build
+**D-011 — Parked next project.** After Lithos: an **"AI-architecture-bottleneck-focused"** build
 targeting the *real* deep-learning bottlenecks — memory bandwidth/capacity, irregular-memory latency,
 MoE all-to-all interconnect (e.g. near-memory / PIM or interconnect architecture; LLM KV-cache,
-recsys embeddings). Complements Grove, which by design cannot touch these. `[verified: builder request]`
+recsys embeddings). Complements Lithos, which by design cannot touch these. `[verified: builder request]`
 
 **D-012 — Spike design pre-registered (resolves OQ-1, OQ-2, OQ-4).** The D-008 gate is now designed
 and **pre-registered** in `spike-prereg.md` (append-only once data is generated). Summary of the
@@ -156,7 +156,7 @@ plots}`. `[modelled]` (a $0/days negative result that retires R7 before the simu
 - **Arm A — a from-scratch mini-GPU (SIMT).** Build our own SIMT core + a minimal ISA + a tiny CUDA-like language → hand-rolled compiler → cycle-accurate software simulator. **Use case:** run real parallel kernels (vector-add → reduction → tiled matmul). **Payoff:** learn GPU microarchitecture *by building it* — warp execution, **warp divergence**, memory **coalescing**, **occupancy**, **latency hiding** via many resident warps. **Novelty:** ~none (Vortex, GPGPU-Sim, Accel-Sim exist) — this arm is *pure application-based GPU-architecture learning*, and it also produces the honest **baseline** that exposes the forcing function for Arm C.
 - **Arm C — near-memory / Processing-In-Memory (PIM).** Motivated by a *measured* problem from Arm A: memory-bound kernels (embedding gather, SpMV, large reductions) **stall the SIMT core on DRAM bandwidth — the memory wall.** Build a PIM architecture + its own ISA where compute is moved into/near the memory banks, and **measure the reduction in off-chip bytes moved / modelled energy** vs the Arm-A baseline. **Use case + novelty:** PIM is a live research + commercial area (UPMEM, Samsung HBM-PIM) and ties to the parked **D-011** ("the real DL bottleneck is memory bandwidth"); an open, minimal ISA + compiler + a measured data-movement win is a *defensible, use-case-driven* contribution — the photonics-style "application forced a new ISA."
 
-The arc is deliberate: **A exposes the bottleneck; C solves it.** Grove's reusable assets carry over — the cycle-accurate-simulator discipline, the hand-rolled-compiler concept, the pre-registration/measurement rigor from the spike, and the ISA-design experience. Hard constraints unchanged: **$0**, simulation-first, solo, months-scale, honest-scope (the over-scope one-way door — building a full language, a real OoO core, or a voxel engine — is the top risk, not novelty). Phasing: **Arm A = v1** (achievable, teaches GPU arch, yields the baseline); **Arm C = v2** (the novel, use-case-driven fix). `[verified: owner decision]` — User input: *"i like A and C … either novelty or use case. application based learning"* and *"the core thing should be the cs fundamentals rigor, this should help me learn gpu architecture."`
+The arc is deliberate: **A exposes the bottleneck; C solves it.** Lithos's reusable assets carry over — the cycle-accurate-simulator discipline, the hand-rolled-compiler concept, the pre-registration/measurement rigor from the spike, and the ISA-design experience. Hard constraints unchanged: **$0**, simulation-first, solo, months-scale, honest-scope (the over-scope one-way door — building a full language, a real OoO core, or a voxel engine — is the top risk, not novelty). Phasing: **Arm A = v1** (achievable, teaches GPU arch, yields the baseline); **Arm C = v2** (the novel, use-case-driven fix). `[verified: owner decision]` — User input: *"i like A and C … either novelty or use case. application based learning"* and *"the core thing should be the cs fundamentals rigor, this should help me learn gpu architecture."`
 
 ---
 
@@ -227,7 +227,11 @@ research + commercial area]`
 - **OQ-4** — Baseline definition: "equal-resource scalar RISC-V." **RESOLVED (D-012, `spike-prereg.md`
   §4):** N-wide in-order superscalar, same N compare units / clock / on-chip feature SRAM; decision uses
   the stronger of branchy (data-grounded p_mis) and branchless variants; OoO comparison out of scope.
-- **OQ-5** — Project name (Grove is a placeholder). *(Still open.)*
+- **OQ-5** — Project name. **RESOLVED (D-021): the project is named _Lithos_** (Greek "stone"; the
+  root of *lithography*, how chips are patterned onto silicon — fitting a from-scratch,
+  build-the-machine project). Availability checked: usable (bare GitHub org `lithos` taken by an
+  inactive user, but the repo lives under the owner's account; the folder `…/grove` is left as-is —
+  a folder rename is optional housekeeping).
 
 ---
 
@@ -319,6 +323,19 @@ Everything runs client-side → $0 hosting (GitHub Pages). Built artifacts (`sim
 are gitignored (regenerate via `build_wasm.ps1`); deploy decision (commit built assets vs CI build)
 deferred. `[verified — WASM smoke passes; native tests unaffected]` — User input: chose *"Go straight
 for the animated playground — the animation is the whole point."*
+
+---
+
+**D-021 — Project named _Lithos_ (resolves OQ-5).** Renamed from the placeholder "Grove" (which came
+from the dead tree-ensemble/"forest" thesis, D-014). **Lithos** (Greek "stone") is the root of
+*lithography*, the process that patterns chips onto silicon — fitting a $0, from-scratch,
+build-and-measure computer-architecture project. Applied across all docs/code comments/strings via a
+global `Grove → Lithos` rename; the absolute filesystem paths inside the frozen pre-registrations
+(`spike-prereg.md`, `pim-prereg.md`) and the on-disk folder (`…/projects/grove`) are intentionally
+left unchanged (a folder rename is optional housekeeping and would only churn paths). `[verified —
+availability checked: GitHub org `lithos` taken by an inactive user, repo lives under the owner's
+account; npm `lithos` taken but the project isn't an npm package]` — User input: chose *"Lithos is
+nice"* from the silica-family shortlist.
 
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |

@@ -1,4 +1,4 @@
-// grove mini-GPU playground — loads the real WASM engine, runs kernels, animates the trace.
+// lithos mini-GPU playground — loads the real WASM engine, runs kernels, animates the trace.
 "use strict";
 
 const EXAMPLES = {

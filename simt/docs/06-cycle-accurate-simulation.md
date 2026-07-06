@@ -29,7 +29,7 @@ Not all simulators model the same thing. From least to most detailed:
    ─────────────       ──────────────────────────────       ──────────────────────
    fast; no timing     models the pipeline, scheduler,       models registers & logic
    (e.g. an emulator)  memory latency, hazards               (Verilog + Verilator)
-   ↑ our LD/ST results ↑ OUR SIMULATOR LIVES HERE            ↑ Grove's optional Arm-A
+   ↑ our LD/ST results ↑ OUR SIMULATOR LIVES HERE            ↑ Lithos's optional Arm-A
                                                                stretch goal
 ```
 
@@ -41,7 +41,7 @@ Not all simulators model the same thing. From least to most detailed:
   scheduler fills stalls. This is where the *architecture* lives, and where our simulator
   sits.
 - **RTL/gate-level** models the literal circuit. Maximally accurate, slowest, needed for
-  building real chips. (Verilator-based RTL is a possible far-future Grove stretch.)
+  building real chips. (Verilator-based RTL is a possible far-future Lithos stretch.)
 
 > **Honesty about our label.** We say "cycle-accurate" in the teaching sense: a deterministic
 > per-cycle timing model. It is not *validated* against real silicon (that would make it

@@ -158,6 +158,6 @@ exists for portability — the same reason ISAs exist at all (§1).
 - NVIDIA, *CUDA Binary Utilities* (documents SASS and `cuobjdump`/`nvdisasm`).
 - D. Patterson & J. Hennessy, *Computer Organization and Design* (the RISC-V edition is an
   excellent, gentle ISA-design companion).
-- Grove code: `include/simt/isa.hpp`, `src/assembler.cpp`, `kernels/vector_add.sasm`.
+- Lithos code: `include/simt/isa.hpp`, `src/assembler.cpp`, `kernels/vector_add.sasm`.
 
 → Previous: [06 — Cycle-Accurate Simulation](06-cycle-accurate-simulation.md) · Next: [08 — Reduction & Cross-Thread Communication](08-reduction-and-communication.md)

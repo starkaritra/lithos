@@ -1,4 +1,4 @@
-# Grove D-008 cost-model spike — canonical config + pre-registered sweep.
+# Lithos D-008 cost-model spike — canonical config + pre-registered sweep.
 # Frozen with spike-prereg.md. Do not change metric/threshold definitions after
 # data is generated (§10). Values below are the pre-registered defaults, the
 # conservative corner, and the one-axis-at-a-time sweep ranges (§3, §4, §6).

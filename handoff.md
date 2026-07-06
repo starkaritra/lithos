@@ -1,4 +1,4 @@
-# Grove — Master Handoff
+# Lithos — Master Handoff
 
 **Read this first.** It orients any agent (human or AI) picking up the project.
 For decisions see `decisions.md`; for the design see `architecture.md`; for research evidence see
@@ -75,7 +75,7 @@ built (D-020, `simt/web/`). **PAUSED here (2026-07-06)** — recorded next steps
 
 *Housekeeping:*
 - Delete the now-merged `exp/d008-cost-model-spike` and `exp/d017-pim` branches (redundant with main).
-- Pick a real **project name** (OQ-5 — "Grove" is a placeholder).
+- Pick a real **project name** (OQ-5 — "Lithos" is a placeholder).
 
 ## 4. The non-negotiables
 - **$0** — free tools only (Python now; Verilator/Icarus later). No paid hardware.

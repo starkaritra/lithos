@@ -134,7 +134,7 @@ the kind of result that survives a skeptical reviewer.
 - B. Nosek et al., "The preregistration revolution," *PNAS*, 2018; J. Platt, "Strong Inference,"
   *Science*, 1964.
 - A. Gelman & E. Loken, "The garden of forking paths," 2013 (why fixing analyses before data matters).
-- Grove: `../../pim-prereg.md` (§4 sweep, §5 decision rule), `../out/conclusion.md` (the verdict),
+- Lithos: `../../pim-prereg.md` (§4 sweep, §5 decision rule), `../out/conclusion.md` (the verdict),
   `../../decisions.md` D-018/D-019.
 
 → Previous: [05 — The Banking Factor `k`](05-the-banking-factor-k.md) · Back to [index](README.md)

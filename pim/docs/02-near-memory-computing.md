@@ -94,7 +94,7 @@ PIM is not hypothetical — it is a live research area and a shipping commercial
   exactly the memory-bound AI kernels we care about.
 - The academic line (Mutlu, Ghose, and others) spans near-DRAM and in-DRAM (e.g. Ambit) computing.
 
-Grove's contribution is **not** "we invented PIM" (we didn't) — it is *an open, minimal, honest,
+Lithos's contribution is **not** "we invented PIM" (we didn't) — it is *an open, minimal, honest,
 cycle-approximate model that measures the data-movement win on a real workload and shows where it holds*
 — the same honest-reproduction spirit as Arm A.
 
@@ -119,6 +119,6 @@ cycle-approximate model that measures the data-movement win on a real workload a
   Perspective," *IBM Journal of R&D*, 2019 (excellent survey + the memory-wall motivation).
 - V. Seshadri et al., "Ambit: In-Memory Accelerator for Bulk Bitwise Operations," *MICRO*, 2017.
 - UPMEM PIM; Samsung HBM-PIM (Aquabolt-XL); SK Hynix AiM — real near-memory systems.
-- Grove: `../../decisions.md` (D-011 the parked PIM idea, D-015/D-017 the arc + scope).
+- Lithos: `../../decisions.md` (D-011 the parked PIM idea, D-015/D-017 the arc + scope).
 
 → Previous: [01 — Recap: the Memory Wall](01-recap-the-memory-wall.md) · Next: [03 — The Bank Model & a Fair Fight](03-the-bank-model-and-fairness.md)

@@ -1,4 +1,4 @@
-# Grove — Spike Pre-Registration (D-008 cost-model de-risk)
+# Lithos — Spike Pre-Registration (D-008 cost-model de-risk)
 
 **Status:** pre-registered / awaiting build. **Owner:** experimentAS (design) → coderAS (Stage A build).
 **Anchor decision:** `decisions.md` D-008, D-012. **Resolves:** OQ-1, OQ-2, OQ-4.
@@ -15,7 +15,7 @@
 
 ## 0. What this spike is — and what a GO actually licenses (read this first)
 
-Grove's entire AI thesis rests on **one** empirical assumption (D-006): *XGBoost tree-ensemble
+Lithos's entire AI thesis rests on **one** empirical assumption (D-006): *XGBoost tree-ensemble
 inference, in the batch-1 online-serving regime, is **control-bound** with a **small on-chip working
 set** — so an EDGE dataflow core can extract far more parallelism per cycle than an equal-resource
 scalar CPU, precisely where GPUs stall on warp divergence.* If that assumption is false, months of

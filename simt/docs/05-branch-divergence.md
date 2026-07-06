@@ -93,7 +93,7 @@ Divergence is the deep reason for the workload split we keep returning to:
   branchy parsing, recursive descent. Threads disagree constantly; warps serialize; the
   ALU array runs half-empty.
 
-> **This is not hypothetical — this project measured it.** Grove began as an attempt to beat
+> **This is not hypothetical — this project measured it.** Lithos began as an attempt to beat
 > a GPU at **decision-tree ensemble inference** (XGBoost), betting that its heavy,
 > data-dependent branching was a weakness a different architecture could exploit. A $0
 > cost-model spike tested that bet and returned **NO-GO**: even so, a well-built branchless
@@ -186,7 +186,7 @@ correct results. That gap *is* the divergence penalty, measured.
    cost compare to a version where all 32 agree? Why?
 2. Which piece of divergence machinery is *already* in our simulator, and which pieces does
    the next slice add?
-3. Connect divergence to the Grove spike's NO-GO result: why were decision trees a tempting —
+3. Connect divergence to the Lithos spike's NO-GO result: why were decision trees a tempting —
    but ultimately losing — target?
 
 ---
@@ -196,7 +196,7 @@ correct results. That gap *is* the divergence penalty, measured.
   Efficient GPU Control Flow," *MICRO*, 2007 (divergence and reconvergence — foundational).
 - NVIDIA, *Volta V100 Whitepaper*, 2017 (independent thread scheduling).
 - NVIDIA, *CUDA C++ Programming Guide* — "Branch Divergence" / "Control Flow."
-- Grove project: `../../spike/out/conclusion.md` and `../../decisions.md` (D-006, D-014) —
+- Lithos project: `../../spike/out/conclusion.md` and `../../decisions.md` (D-006, D-014) —
   the measured tree-inference NO-GO.
 
 → Previous: [04 — Memory Coalescing](04-memory-coalescing.md) · Next: [06 — Cycle-Accurate Simulation](06-cycle-accurate-simulation.md)

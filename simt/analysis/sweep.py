@@ -1,4 +1,4 @@
-"""Grove Arm A — analysis layer (the Python half of the gem5-pattern split, D-016).
+"""Lithos Arm A — analysis layer (the Python half of the gem5-pattern split, D-016).
 
 Drives the C++ mini-GPU (`build/simt.exe`) across parameter sweeps and plots the three
 microarchitecture effects the simulator models, turning them into curves you can see:

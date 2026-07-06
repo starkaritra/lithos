@@ -100,6 +100,6 @@ counted bytes — is: *how much data movement does PIM actually save, and for wh
   2009 (compute-bound vs bandwidth-bound).
 - M. Horowitz, "Computing's Energy Problem (and what we can do about it)," *ISSCC*, 2014 (the energy
   numbers).
-- Grove: `../../simt/docs/09-memory-wall-measured.md` (the Arm-A measurements recapped here).
+- Lithos: `../../simt/docs/09-memory-wall-measured.md` (the Arm-A measurements recapped here).
 
 → Next: [02 — Near-Memory Computing](02-near-memory-computing.md)

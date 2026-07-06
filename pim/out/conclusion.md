@@ -1,4 +1,4 @@
-# Grove Arm C (PIM) — CONCLUSION: **CONDITIONAL-GO** (data-movement win is real but banking-limited; scoped to high-pooling features)
+# Lithos Arm C (PIM) — CONCLUSION: **CONDITIONAL-GO** (data-movement win is real but banking-limited; scoped to high-pooling features)
 
 - **Experiment:** Arm C (D-017/D-018) — "does near-memory / PIM cut off-chip bytes (DMR = baseline ÷ PIM link bytes) *substantially and robustly* on DLRM embedding-bag sum-pooling, under a fair shared bandwidth cap, with an honest crossover?"
 - **Pre-registration (frozen from data-generation):** `pim-prereg.md` §0–§8 (§2 metric/guardrails, §4 crossover, §5 GO/NO-GO rule, §6 canonical+sweep, §7 threats)

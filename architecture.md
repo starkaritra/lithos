@@ -1,11 +1,11 @@
-# Grove — Architecture
+# Lithos — Architecture
 
 This document motivates each design before it specifies it (if a term isn't defined, it's defined at
-first use). Grove has **two built arms** — a mini-GPU (Arm A) and a near-memory/PIM model (Arm C) —
+first use). Lithos has **two built arms** — a mini-GPU (Arm A) and a near-memory/PIM model (Arm C) —
 plus a **concluded spike** whose negative result reshaped the project. Read `README.md` for the story
 and `decisions.md` for the decision log; this file is the technical design.
 
-> **History note.** Grove began as an **EDGE dataflow accelerator** aimed at XGBoost tree-ensemble
+> **History note.** Lithos began as an **EDGE dataflow accelerator** aimed at XGBoost tree-ensemble
 > inference. A pre-registered cost-model spike returned **NO-GO** (decisions D-008…D-014): a competent
 > branchless CPU already neutralizes tree branching, so the win wasn't there. The project then pivoted
 > (D-015) to the **A→C arc** documented below. The EDGE design is retired; this document specifies what
@@ -19,7 +19,7 @@ grown for decades (Wulf & McKee 1995). A modern chip can do ~100+ arithmetic ops
 fetch one number from off-chip DRAM. So the real question for any high-throughput machine is not "how
 fast is the arithmetic?" but **"how do you keep the arithmetic units fed despite slow memory?"**
 
-Grove's two arms are two answers, measured:
+Lithos's two arms are two answers, measured:
 - **Arm A (mini-GPU)** — the mainstream answer: *tolerate* the wall with massive parallelism (hide
   latency behind many threads; minimize transactions via coalescing). It then *measures* that
   memory-bound kernels stall anyway.
@@ -80,7 +80,7 @@ optional extensions, not needed to teach the core throughput-machine ideas.
 Arm A *measured* that memory-bound kernels are limited by **data movement**, not compute. The only way
 to beat that (rather than tolerate it) is to **move the compute to the data**: put small compute units
 in the memory banks so aggregation happens locally and only the (small) result crosses the off-chip
-link. This is **PIM** (prior art: UPMEM, Samsung HBM-PIM; the Mutlu/Ghose research line). Grove's
+link. This is **PIM** (prior art: UPMEM, Samsung HBM-PIM; the Mutlu/Ghose research line). Lithos's
 contribution is an **open, minimal, cycle-approximate model + a fair, measured data-movement result**.
 
 ### 2.2 The model (`pim/include/pim/model.hpp`, `src/model.cpp`)

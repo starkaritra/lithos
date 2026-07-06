@@ -130,6 +130,6 @@ it first looks (chapter 05).
 - Hennessy & Patterson, *Computer Architecture: A Quantitative Approach*, 6th ed., §2 (DRAM
   organization: banks, ranks, channels).
 - S. Ghose et al., "Processing-in-Memory: A Workload-Driven Perspective," *IBM J. R&D*, 2019.
-- Grove: `../../pim-prereg.md` §2–§3 (the fair baseline + the model), `../../decisions.md` D-017.
+- Lithos: `../../pim-prereg.md` §2–§3 (the fair baseline + the model), `../../decisions.md` D-017.
 
 → Previous: [02 — Near-Memory Computing](02-near-memory-computing.md) · Next: [04 — Byte-Accounting & the DMR](04-byte-accounting-and-dmr.md)

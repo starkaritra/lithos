@@ -145,7 +145,7 @@ you've *built the standard machine and measured that it stalls on it.* You just 
 - Wm. A. Wulf & S. A. McKee, "Hitting the Memory Wall," 1995.
 - S. Ghose et al., "Processing-in-Memory: A Workload-Driven Perspective," *IBM J. R&D*, 2019.
 - UPMEM, Samsung HBM-PIM (real near-memory systems) — background for Arm C.
-- Grove project: `../../decisions.md` (D-011 parked PIM idea, D-015 the A→C arc),
+- Lithos project: `../../decisions.md` (D-011 parked PIM idea, D-015 the A→C arc),
   `../../handoff.md`.
 
 → Previous: [08 — Reduction & Cross-Thread Communication](08-reduction-and-communication.md) · Back to [index](README.md)

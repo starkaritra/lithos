@@ -1,10 +1,12 @@
-# Grove
+# Lithos
 
-> **Working name** (placeholder — see decisions OQ-5). A $0, from-scratch, simulation-first
-> exploration of **computer architecture through measurement** — build the machine, measure why it
-> stalls, then build the thing that fixes it.
+# Lithos
 
-Grove is a solo, months-scale project whose real product is **understanding**: a cycle-accurate
+> **Lithos** (Greek *λίθος*, "stone") — the root of **lithography**, how chips are patterned onto
+> silicon. A $0, from-scratch, simulation-first exploration of **computer architecture through
+> measurement** — build the machine, measure why it stalls, then build the thing that fixes it.
+
+Lithos is a solo, months-scale project whose real product is **understanding**: a cycle-accurate
 **mini-GPU** and a **near-memory (PIM)** model, each built from scratch, each used to *measure* a
 real architectural question rather than assert it. Everything here is honest and reproducible —
 including a headline idea that was **tested and killed** before it wasted months.

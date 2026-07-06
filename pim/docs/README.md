@@ -1,4 +1,4 @@
-# Grove Arm C — Beating the Memory Wall, Learned by Building PIM
+# Lithos Arm C — Beating the Memory Wall, Learned by Building PIM
 
 Welcome to the second half of the course. In [Arm A](../../simt/docs/README.md) you built a mini-GPU
 and *measured* that memory-bound kernels stall on the **memory wall** — data movement, not arithmetic,

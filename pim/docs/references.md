@@ -40,7 +40,7 @@ given so you can find each work; consult the original for exact page numbers.
   rival hypotheses.
 - **A. Gelman & E. Loken**, "The garden of forking paths," 2013. Why analyses must be fixed before data.
 
-## Grove project documents (internal)
+## Lithos project documents (internal)
 - `../../pim-prereg.md` — the Arm C pre-registration (hypotheses, DMR metric, byte accounting, sweep,
   GO/NO-GO rule).
 - `../out/conclusion.md` — the CONDITIONAL-GO verdict, rival scorecard, and calibrated confidence.
