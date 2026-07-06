@@ -31,19 +31,23 @@ instruction operates **per active lane** (chapter 02).
 | `tid rd` | `rd = global thread id` | `warp_id × 32 + lane` — breaks lane symmetry |
 | `iadd rd, ra, rb` | `rd = ra + rb` | integer add (also used for addressing) |
 | `imul rd, ra, rb` | `rd = ra × rb` | integer multiply (strides, matmul) |
+| `slt rd, ra, rb` | `rd = (ra < rb) ? 1 : 0` | set-less-than → per-lane **predicate** |
 | `ld rd, ra` | `rd = mem[ra]` | word-addressed load (a memory op) |
 | `st ra, rb` | `mem[ra] = rb` | word-addressed store (a memory op) |
+| `jmp label` | `pc = label` | unconditional jump (all active lanes) |
+| `bra rp, else, join` | predicated branch | lanes with `rp≠0` → then; `rp=0` → `else`; reconverge at `join` (chapter 05) |
 | `halt` | stop this warp | — |
 
 State: **16 private int32 registers per lane** (`r0..r15`, `NREGS`), and a flat,
-**word-addressed** global memory of int32 words. That's it. No floats, no stack, no function
-calls — those aren't needed to teach warps, latency hiding, coalescing, and divergence, and
-leaving them out keeps the whole machine readable.
+**word-addressed** global memory of int32 words. Control flow uses **labels** (a lone
+`name:` line) resolved by the assembler. That's it — no floats, no stack, no function
+calls — because these ten ops are enough to teach warps, latency hiding, coalescing, and
+divergence, and leaving the rest out keeps the whole machine readable.
 
 > **Design principle in action (KISS + YAGNI).** We add instructions only when a kernel we
 > actually want to run needs them. `imul` exists because strided/matmul addressing needs it;
-> `setp`/`bra` will arrive with the divergence slice (chapter 05) because that's when
-> control flow first matters. We are not speculatively building a general CPU.
+> `slt`/`bra`/`jmp` arrived with the divergence slice (chapter 05) because that's when
+> control flow first mattered. We are not speculatively building a general CPU.
 
 Why **word-addressed** (address = word index, not byte index)? It removes byte/word
 conversion noise from every example so the interesting arithmetic (addresses, strides,

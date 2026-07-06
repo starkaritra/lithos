@@ -17,12 +17,15 @@ Arm A exposes the **memory wall**; **Arm C** (later) builds near-memory/PIM to s
 - **Memory coalescing** — a memory instruction costs **one transaction per distinct
   memory segment** touched by the active lanes. Contiguous access → few transactions;
   strided/scattered → up to 32. (Proven: contiguous = 4 txns, strided = 32 txns.)
-- **Divergence** — the per-lane active mask is in place; predicated branches (which
-  serialize a warp) arrive in the next slice.
+- **Divergence** — when a warp's lanes disagree on an `if`, the core runs both paths
+  serially via a per-warp reconvergence stack (`slt`/`bra`/`jmp`). (Proven: a split warp
+  runs strictly more instructions/cycles than a uniform one; `divergences` is counted.)
 
-## The ISA (v1, deliberately minimal — D-015/OQ-6)
-`mov rd,imm` · `tid rd` · `iadd rd,ra,rb` · `imul rd,ra,rb` · `ld rd,ra` (rd=mem[ra]) ·
-`st ra,rb` (mem[ra]=rb) · `halt`. Word-addressed memory; 16 int32 registers per lane.
+## The ISA (v1 + divergence slice — D-015/OQ-6)
+`mov rd,imm` · `tid rd` · `iadd rd,ra,rb` · `imul rd,ra,rb` · `slt rd,ra,rb` (rd=ra<rb) ·
+`ld rd,ra` (rd=mem[ra]) · `st ra,rb` (mem[ra]=rb) · `jmp label` · `bra rp,else,join`
+(predicated branch → divergence) · `halt`. Word-addressed memory; 16 int32 registers per
+lane; labels resolved by the assembler.
 
 ## Learn the theory: `docs/`
 This project doubles as a **GPU-architecture course**. The [`docs/`](docs/README.md) folder

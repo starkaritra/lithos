@@ -127,6 +127,60 @@ void test_assembler_errors() {
         threw = true;
     }
     CHECK(threw);
+
+    threw = false;
+    try {
+        simt::assemble("jmp nowhere\n");  // undefined label
+    } catch (const std::exception&) {
+        threw = true;
+    }
+    CHECK(threw);
+}
+
+// A structured if/else kernel: if (tid < threshold) C[tid]=100+tid else C[tid]=200+tid.
+std::string divergence_kernel(int threshold) {
+    return
+        "mov  r5, " + std::to_string(threshold) + "\n"
+        "tid  r0\n"
+        "slt  r1, r0, r5\n"     // predicate = (tid < threshold)
+        "bra  r1, else, join\n"
+        "mov  r2, 100\n"        // then-block
+        "iadd r3, r2, r0\n"
+        "st   r0, r3\n"
+        "jmp  done\n"
+        "else:\n"
+        "mov  r2, 200\n"        // else-block
+        "iadd r3, r2, r0\n"
+        "st   r0, r3\n"
+        "join:\n"
+        "done:\n"
+        "halt\n";
+}
+
+// Branch divergence: a warp that disagrees on an if runs BOTH paths serially; a warp
+// that agrees runs only one. Both must be functionally correct.
+void test_divergence() {
+    // Divergent: threshold 16 splits the 32-lane warp (lanes 0..15 vs 16..31).
+    auto div = simt::assemble(divergence_kernel(16));
+    simt::GlobalMemory md(64);
+    simt::Core cd(div, md);
+    cd.run(32);
+    for (int i = 0; i < 32; ++i)
+        CHECK(md.load(i) == (i < 16 ? 100 + i : 200 + i));  // masked exec is correct
+    CHECK(cd.stats().divergent_branches == 1);
+
+    // Uniform: threshold 64 -> every lane takes the then-path, warp never splits.
+    auto uni = simt::assemble(divergence_kernel(64));
+    simt::GlobalMemory mu(64);
+    simt::Core cu(uni, mu);
+    cu.run(32);
+    for (int i = 0; i < 32; ++i) CHECK(mu.load(i) == 100 + i);
+    CHECK(cu.stats().divergent_branches == 0);
+
+    // The divergent warp executed the then AND else blocks in series -> strictly more
+    // instructions and cycles than the uniform warp. That gap IS the divergence cost.
+    CHECK(cd.stats().warp_instructions > cu.stats().warp_instructions);
+    CHECK(cd.stats().cycles > cu.stats().cycles);
 }
 
 }  // namespace
@@ -137,6 +191,7 @@ int main() {
     test_coalescing();
     test_latency_hiding();
     test_assembler_errors();
+    test_divergence();
 
     if (g_failures == 0) {
         std::cout << "all mini-GPU tests passed\n";

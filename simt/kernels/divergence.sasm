@@ -1,0 +1,22 @@
+# divergence demo: threads in the first half take the "then" path, the rest "else".
+#   if (tid < 16)  C[tid] = 100 + tid      # then
+#   else           C[tid] = 200 + tid      # else
+# With 32 threads (one warp) the predicate SPLITS the warp -> divergence: the core
+# runs the then-block and the else-block serially. With a predicate that all lanes
+# agree on, there is no split and only one block runs. Compare the cycle counts.
+mov  r5, 16          # threshold
+tid  r0              # r0 = tid
+slt  r1, r0, r5      # r1 = (tid < 16) ? 1 : 0   -> the per-lane predicate
+bra  r1, else, join  # lanes with r1!=0 fall through to THEN; others jump to ELSE
+                     # then-block:
+mov  r2, 100
+iadd r3, r2, r0      # r3 = 100 + tid
+st   r0, r3          # C[tid] = r3
+jmp  done            # skip the else-block
+else:
+mov  r2, 200
+iadd r3, r2, r0      # r3 = 200 + tid
+st   r0, r3          # C[tid] = r3
+join:
+done:
+halt

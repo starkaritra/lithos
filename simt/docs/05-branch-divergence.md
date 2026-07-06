@@ -4,10 +4,10 @@
 > effect that fundamentally shapes *what GPUs are good at*. This is also the effect that,
 > measured in an earlier phase of this project, shut down a whole design (the spike NO-GO).
 >
-> **Status:** the theory here is complete and essential. The `setp`/`bra` instructions that
-> make it *measurable* in our simulator are the **next slice to build** — this chapter is
-> your spec and motivation for that slice. The mechanism (the active mask) is already in
-> place from chapter 02.
+> **Status:** the theory here is complete, and the instructions that make it *measurable*
+> (`slt`/`bra`/`jmp` + a per-warp reconvergence stack) are now **built** — this chapter
+> both teaches divergence and documents the implemented slice. The mechanism (the active
+> mask) came from chapter 02; §5 shows the working code and the measured cost.
 
 ---
 
@@ -104,31 +104,66 @@ Divergence is the deep reason for the workload split we keep returning to:
 
 ---
 
-## 5. In our mini-GPU: what exists and what's next
+## 5. In our mini-GPU: how divergence is built
 
-**Already in place (chapter 02):** every `Warp` carries `std::array<bool, WARP_SIZE>
-active`, and every instruction in `execute()` already respects it (`if (w.active[l]) ...`).
-So the *substrate* for divergence is built — masked execution works today.
+**The substrate (chapter 02):** every `Warp` carries `std::array<bool, WARP_SIZE> active`,
+and every instruction respects it (`if (w.active[l]) ...`). Divergence builds on that mask.
 
-**The next slice** adds the instructions and control to make divergence real and measurable:
+**The instructions (in `include/simt/isa.hpp`):**
 
-1. **`setp rd, ra`** — set a per-lane predicate from a register (e.g. `ra > 0`).
-2. **`bra target, pred`** — a predicated branch: lanes where `pred` is true go to `target`;
-   others fall through. When lanes disagree, the warp has *diverged*.
-3. **A reconvergence stack** per warp: on a divergent branch, push the fall-through path +
-   its mask; run the taken path with its mask; on reaching the reconvergence point, pop and
-   run the other side; then restore the full mask.
-4. **A `divergent_branches` counter** in `SimStats` (the field is already reserved) plus
-   accounting so a divergent branch costs `if + else` cycles, a uniform branch costs one.
+- **`slt rd, ra, rb`** — set-less-than: `rd = (ra < rb) ? 1 : 0`. This produces the per-lane
+  **predicate** (our "set predicate"). ALU, 1 cycle.
+- **`bra rp, else, join`** — the divergent branch. Lanes where `rp != 0` fall through to the
+  "then" block; lanes where `rp == 0` jump to the `else` label; both paths reconverge at
+  `join`. (Encoding: `ra` = predicate reg, `imm` = else-target, `rd` = join-target.)
+- **`jmp target`** — unconditional jump, used to skip the else-block at the end of the then-
+  block. Labels (e.g. `else:`, `join:`) are resolved by the assembler.
 
-The **planned demonstration:** a kernel where thread `i` does path A if `i` is even and path
-B if odd. Run it once as written (maximal divergence) and once with threads grouped so each
-warp is uniform (no divergence), and *measure* the cycle difference — the same "see the
-serialization" payoff we get for coalescing and latency hiding.
+**The reconvergence stack (`src/core.cpp`, `Core::branch` + the pop loop in `Core::run`):**
+this is the classic PDOM technique (Fung et al.). When `bra` finds the warp's active lanes
+**disagree**, it splits:
+
+```cpp
+// divergent: push the JOIN frame (full mask resumes at join_pc) and the ELSE path,
+// then make the live frame the THEN path. Each path pops when its pc reaches join_pc.
+Frame join_frame{w.active, join_pc, w.rpc};
+Frame else_frame{not_taken, else_pc, join_pc};
+w.stack.push_back(join_frame);
+w.stack.push_back(else_frame);
+w.active = taken;  w.pc = then_pc;  w.rpc = join_pc;
+stats_.divergent_branches += 1;
+```
+
+The then-path runs (other lanes masked off), reaches `join` via `jmp`, and pops → the
+else-path runs, reaches `join`, pops → the join frame restores the **full mask** and the
+warp continues in lockstep. The paths ran **serially** — that's the cost. Crucially, if the
+whole warp *agrees* (the uniform case), `bra` just redirects the PC with **no push and no
+cost** — real hardware doesn't pay for a branch the whole warp takes together.
+
+## 6. Measure it yourself — see divergence cost as a number
+
+The kernel `kernels/divergence.sasm` computes `if (tid < 16) C[tid]=100+tid else 200+tid`.
+Run it (one warp, so `tid < 16` **splits** the warp):
+
+```
+build\simt.exe kernels\divergence.sasm 32
+→ cycles: 426   mem ops: 2   divergences: 1   C[0..7]: 100 101 ... 107
+```
+
+`mem ops: 2` is the smoking gun: the store executed **twice** — once for the then-lanes,
+once for the else-lanes, in series — even though each lane stores once. The test
+`test_divergence` (in `tests/test_simt.cpp`) makes the cost explicit by comparing against a
+**uniform** version (threshold 64 → all lanes take the then-path, no split): the divergent
+warp runs strictly more instructions and cycles (`cd.cycles > cu.cycles`), while both produce
+correct results. That gap *is* the divergence penalty, measured.
+
+> **Try it:** change the threshold in `divergence.sasm` to 32 (all lanes `tid < 32` → the
+> warp agrees). Watch `divergences` drop to 0 and the cycle count roughly halve — you just
+> made a branch free by removing divergence, exactly as a GPU programmer would.
 
 ---
 
-## 6. On real GPUs
+## 7. On real GPUs
 
 - Pre-Volta NVIDIA GPUs used exactly this: one PC per warp + a reconvergence stack, with
   reconvergence at the immediate post-dominator of the branch.
@@ -140,9 +175,9 @@ serialization" payoff we get for coalescing and latency hiding.
 - Programmers minimize divergence by structuring data so a warp's threads agree (e.g. sort
   by branch outcome, or align branch granularity to the warp).
 
-> **Reality check.** Our planned model uses simple if/else reconvergence and ignores
-> Volta-style per-thread PCs. That's the correct first mental model and matches classic GPU
-> behavior; the refinement is noted for honesty.
+> **Reality check.** Our model uses simple if/else reconvergence and ignores Volta-style
+> per-thread PCs. That's the correct first mental model and matches classic GPU behavior;
+> the refinement is noted for honesty.
 
 ---
 

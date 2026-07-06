@@ -1,8 +1,9 @@
-// mini-GPU CLI: assemble a kernel, run vector-add on the SIMT core, verify the
-// result, and print the cycle-accurate stats. Usage:
+// mini-GPU CLI: assemble a kernel, run it on the SIMT core, print cycle-accurate stats.
+// Usage:
 //   simt <kernel.sasm> [n_threads]
-// The vector-add scenario uses the memory layout baked into the kernel:
-//   A at word base 0, B at base 32, C at base 64 (so n<=32 for the v1 spine).
+// Memory is seeded as A[i]=i at word base 0 and B[i]=2i at base 32 (so the vector_add
+// kernel, which writes C at base 64, produces C[i]=3i). For other kernels the seeding is
+// harmless; the stats and a small output dump are printed so you can see what happened.
 #include "simt/assembler.hpp"
 #include "simt/core.hpp"
 #include "simt/memory.hpp"
@@ -37,30 +38,36 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Layout: A[0..n), B[32..32+n), C[64..64+n). Seed A[i]=i, B[i]=2i => C[i]=3i.
-    const std::size_t baseA = 0, baseB = 32, baseC = 64;
-    simt::GlobalMemory mem(baseC + static_cast<std::size_t>(n) + 8);
+    simt::GlobalMemory mem(256);
     for (int i = 0; i < n; ++i) {
-        mem.store(baseA + i, i);
-        mem.store(baseB + i, 2 * i);
+        mem.store(0 + i, i);       // A[i] = i
+        mem.store(32 + i, 2 * i);  // B[i] = 2i
     }
 
     simt::Core core(prog, mem);
     core.run(n);
 
-    bool ok = true;
-    for (int i = 0; i < n; ++i)
-        if (mem.load(baseC + i) != 3 * i) ok = false;
-
     const auto& s = core.stats();
+    const int n_warps = (n + simt::WARP_SIZE - 1) / simt::WARP_SIZE;
     std::cout << "kernel        : " << path << "\n"
-              << "threads       : " << n << " (" << (n + simt::WARP_SIZE - 1) / simt::WARP_SIZE
-              << " warp(s) x " << simt::WARP_SIZE << " lanes)\n"
-              << "result        : " << (ok ? "PASS (C[i] == 3*i)" : "FAIL") << "\n"
+              << "threads       : " << n << " (" << n_warps << " warp(s) x "
+              << simt::WARP_SIZE << " lanes)\n"
               << "cycles        : " << s.cycles << "\n"
               << "warp-instrs   : " << s.warp_instructions << "\n"
               << "mem ops       : " << s.mem_ops << "\n"
-              << "mem txns      : " << s.mem_transactions
-              << "  (coalescing: fewer is better)\n";
-    return ok ? 0 : 1;
+              << "mem txns      : " << s.mem_transactions << "  (coalescing: fewer is better)\n"
+              << "divergences   : " << s.divergent_branches << "  (warps that split on a branch)\n";
+
+    // Kernel-specific readout so you can SEE the result.
+    if (path.find("vector_add") != std::string::npos) {
+        bool ok = true;
+        for (int i = 0; i < n; ++i)
+            if (mem.load(64 + i) != 3 * i) ok = false;
+        std::cout << "result        : " << (ok ? "PASS (C[i] == 3*i)" : "FAIL") << "\n";
+    } else if (path.find("divergence") != std::string::npos) {
+        std::cout << "output C[0..7]: ";
+        for (int i = 0; i < 8 && i < n; ++i) std::cout << mem.load(i) << " ";
+        std::cout << "\n(lanes < 16 took 'then' = 100+i; the rest took 'else' = 200+i)\n";
+    }
+    return 0;
 }

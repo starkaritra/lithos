@@ -13,8 +13,13 @@ enum class Op {
     TID,   // rd = global thread id        (lane's position in the grid)
     IADD,  // rd = ra + rb
     IMUL,  // rd = ra * rb
+    SLT,   // rd = (ra < rb) ? 1 : 0       (set-less-than -> per-lane predicate)
     LD,    // rd = global_mem[ ra ]        (word-addressed load)
     ST,    // global_mem[ ra ] = rb        (word-addressed store)
+    JMP,   // pc = imm                     (unconditional; imm holds target index)
+    BRA,   // predicated branch (SIMT divergence): lanes with reg[ra]!=0 fall through
+           //   to the "then" block; lanes with reg[ra]==0 go to the "else" target.
+           //   Encoding: ra = predicate reg, imm = else-target, rd = join-target.
     HALT   // stop this warp
 };
 

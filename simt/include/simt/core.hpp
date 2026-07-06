@@ -31,14 +31,28 @@ struct SimStats {
     std::uint64_t warp_instructions = 0;    // warp-level instructions issued
     std::uint64_t mem_transactions = 0;     // total memory transactions (coalescing metric)
     std::uint64_t mem_ops = 0;              // memory instructions issued (warp-level)
+    std::uint64_t divergent_branches = 0;   // branches where a warp's lanes disagreed
+};
+
+// A reconvergence-stack frame (Fung et al., MICRO 2007). When a warp diverges, the
+// paths are pushed as frames and executed one at a time; a frame is popped when its
+// pc reaches its reconvergence point (rpc), rejoining the lanes below it.
+struct Frame {
+    std::array<bool, WARP_SIZE> mask{};   // which lanes are active on this path
+    int pc = 0;                           // next instruction for this path
+    int rpc = -1;                         // reconvergence pc (-1 = none, base frame)
 };
 
 struct Warp {
     int id = 0;
-    int pc = 0;
+    int pc = 0;                   // live (top-of-stack) program counter
+    int rpc = -1;                 // live frame's reconvergence pc
     bool halted = false;
     std::uint64_t ready_at = 0;   // earliest cycle this warp may issue again
-    std::array<bool, WARP_SIZE> active{};
+    std::array<bool, WARP_SIZE> active{};   // live (top-of-stack) active mask
+    std::vector<Frame> stack;               // frames beneath the live one (divergence)
+    // Registers are per-lane and PERSIST across divergence (a masked-off lane keeps
+    // its state), so they live on the warp, not per-frame.
     std::array<std::array<std::int32_t, NREGS>, WARP_SIZE> regs{};
 };
 
@@ -57,6 +71,7 @@ private:
     // latency (1 for ALU, memory-dependent for LD/ST).
     std::uint64_t execute(Warp& w);
     std::uint64_t memory_access(Warp& w, bool is_store);
+    void branch(Warp& w);   // BRA: uniform redirect or divergent split via the stack
 
     std::vector<Instr> prog_;
     GlobalMemory& mem_;
