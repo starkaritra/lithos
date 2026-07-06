@@ -1,0 +1,11 @@
+# Spike outputs and cached data/models (derived artifacts — never committed)
+spike/out/
+spike/cache/
+spike-exploratory.md
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/

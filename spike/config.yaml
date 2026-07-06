@@ -1,0 +1,56 @@
+# Grove D-008 cost-model spike — canonical config + pre-registered sweep.
+# Frozen with spike-prereg.md. Do not change metric/threshold definitions after
+# data is generated (§10). Values below are the pre-registered defaults, the
+# conservative corner, and the one-axis-at-a-time sweep ranges (§3, §4, §6).
+
+seed: 42
+
+# ---- Dataset / model (OQ-2, §6) ------------------------------------------------
+dataset:
+  canonical: higgs          # UCI/OpenML HIGGS subset, 28 dense numeric feats, binary
+  robustness: covertype     # UCI Covertype, 54 feats, 7-class (stresses G1)
+  n_train_rows: 200000      # training subsample cap (speed); full set used if smaller
+  n_eval_rows: 1000         # held-out rows the cost model is scored over (fixed seed)
+
+xgb:
+  canonical:
+    n_estimators: 500
+    max_depth: 6
+    tree_method: hist
+    learning_rate: 0.3      # xgboost default
+    # objective is set per-dataset in code (binary:logistic / multi:softprob)
+
+# ---- Resource normalisation (OQ-4, §4) ----------------------------------------
+resources:
+  N_units: 16               # equal functional-unit budget for BOTH engines
+  bytes_per_node: 16        # compact node encoding (§3.5)
+  sram_budget_bytes: 1048576   # 1 MB primary on-chip budget (G1)
+
+# ---- Scalar baseline (§3.3) ---------------------------------------------------
+scalar:
+  flush_penalty_B: 12       # in-order pipeline flush cost (cycles) on mispredict
+  branchless_full_tree: true   # pessimistic branchless = evaluate all internal nodes
+  branchless_predication_factor: 2.0  # optimistic branchless ~= path-only x this
+
+# ---- EDGE overheads (§3.4). "default" is charged in the sweep; "conservative"
+#      corner drives the GO/NO-GO decision. ---------------------------------------
+edge:
+  default:   { t_tag: 1.0, d_disp: 1.0, g: 1.0, R_factor: 1.0 }   # R = R_factor * N
+  conservative: { t_tag: 2.0, d_disp: 2.0, g: 4.0, R_factor: 0.5 }
+
+# ---- Pre-registered sensitivity sweep (§6). One axis at a time around canonical. ----
+sweep:
+  n_estimators: [100, 300, 500, 1000]
+  max_depth:    [4, 6, 8, 10]
+  batch:        [1, 8, 64, 256]
+  N_units:      [4, 8, 16, 32]
+  p_mis:        [0.1, 0.3, 0.5]     # plus the data-grounded estimate (always computed)
+  bytes_per_node: [12, 16, 24]
+
+# ---- GO/NO-GO thresholds (OQ-1, §5). Reported by decision.py; experimentAS renders. --
+decision:
+  go_primary_rho: 3.0
+  go_sweep_min_rho: 2.0
+  nogo_rho: 1.5
+  overhead_fraction_max: 0.5        # G3
+  sram_budget_bytes: 1048576        # G1 (canonical)
