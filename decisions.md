@@ -95,6 +95,38 @@ committed design:
 
 ---
 
+**D-013 — Spike pre-reg Amendment A1 (pre-data engine cost-model fairness fix).** On the coderAS
+pre-data **synthetic smoke** (40 trees, depth 4, N=16 — *not* decision data; no canonical HIGGS numbers
+generated), the primary metric **ρ = EDGE ÷ strong-scalar node-evals/cycle was structurally < 1 for any
+data** (smoke: charged `edge_rate` 2.63/1.17 vs `strong_scalar` 8.0 → ρ 0.33/0.15), so the spike could
+return *only* NO-GO and could **not discriminate H0 from H1** — a modelling artifact, not a result.
+experimentAS ruled on the two asymmetries **before** any decision data (per `spike-prereg.md` §10) and
+recorded a timestamped **Amendment A1** (2026-07-06T12:41:41+05:30):
+- **Asymmetry 1 (per-node cost) — fixed as genuine unfairness.** Both engines were N-wide but only EDGE
+  paid a multi-cycle occupancy `c_edge = 1+t_tag+d_disp+g` (4/9 cyc), while the scalar was credited
+  ~1 node-eval/cycle/lane. Two sub-faults: (a) feature-gather `g` and child-select are done by *both*
+  engines yet charged only to EDGE; (b) charging `c_edge` as exclusive occupancy models EDGE as
+  *un-pipelined*, contradicting its tagged-token/Monsoon pipelined basis (D-007). Fix: `g, d_disp` and
+  the pipeline-depth part of `t_tag` become **latency** (hidden by token parallelism → critical-path /
+  reduction only, `c_edge_lat = 1+t_tag+d_disp+g`); EDGE keeps two genuine throughput taxes —
+  operand-network cap `R = R_factor·N` (conservative 1/2) and an un-pipelinable tag-match tax
+  `τ_tag` (occupancy `c_edge_occ = 1+τ_tag`; default 0.5, conservative 1.0). Rival R-B stays killable.
+- **Asymmetry 2 (scalar cross-tree width) — ruled *keep the strong baseline*.** A competent scalar
+  kernel *does* get width via SIMD-across-trees (that is why QuickScorer/RapidScorer exist,
+  `research/usecase.md §4`); EDGE's claim is "width *without* the branch/predication tax," not "only
+  EDGE finds width." So the decision baseline stays the **width-N** `strong_scalar =
+  max(branchy_swpipe, branchless_opt)` (unchanged — weakening it would strawman H0 and *help* EDGE). A
+  dependency-honest `scalar_branchy_naive = 1/(1+p_mis·B)` is **added for R-A characterization only**,
+  not the decision.
+- **No threshold moved.** GO (ρ≥3× canonical & ≥2× sweep & G1≤1 MB & G3<50%), NO-GO (ρ<1.5× or spill),
+  gray [1.5×,3×), canonical config, and the conservative-corner decision rule are all unchanged; only
+  the §3.3/§3.4 engine internals changed. The fair model is **not** GO-biased: canonical-like ρ ≈ 1.27
+  (default) / 0.95 (conservative) → NO-GO/low-gray, reaching GO only where the *data* inflates the
+  scalar's branchless work (deep trees). H1 is now testable. coderAS to implement A1 one-to-one, then
+  run canonical HIGGS. `[believed]`
+
+---
+
 ## Open questions (decide before or during the relevant phase)
 - **OQ-1** — Exact GO/NO-GO thresholds for the spike. **RESOLVED (D-012, `spike-prereg.md` §5):** GO iff
   ρ ≥ 3× (canonical) & ρ ≥ 2× (all sweep) vs the conservative baseline & resident ≤ 1 MB & overhead
@@ -115,5 +147,5 @@ committed design:
 | R2 | "No open full-stack EDGE" is an *absence* claim | [believed] | M | H | no | Focused prior-art pass (partly done in research/) | open |
 | R3 | Phase-2 block-forming compiler sinks the project | [known] hard | H | H | no | Phase-1 hand-written blocks prove microarch first | mitigated |
 | R6 | AI angle is DL-training (not deliverable by EDGE) | [verified] | — | — | — | Accepted tree-inference framing instead | retired |
-| R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **spike DESIGNED & pre-registered (D-012); awaiting coderAS Stage A build → then GO/NO-GO** |
+| R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **spike pre-registered (D-012); pre-data cost-model fairness bug found on synthetic smoke → fixed by timestamped Amendment A1 (D-013) BEFORE any canonical data; coderAS to implement A1 then run HIGGS → GO/NO-GO** |
 | R8 | "Fixed-function FPGA beats you" critique | [believed] | M | M | no | Frame as programmability + open stack (D-010) | open |

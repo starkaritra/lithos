@@ -354,3 +354,74 @@ This is the pre-registration. **coderAS Stage A is unblocked to implement to thi
 or metric definitions may be changed after data is generated; if a definition proves unimplementable,
 coderAS returns to experimentAS to amend the pre-registration **before** producing numbers, and the
 amendment is recorded with a timestamp.
+
+---
+
+## Amendment A1 (pre-data) — engine cost-model fairness fix
+
+- **Timestamp:** 2026-07-06T12:41:41+05:30
+- **Author:** experimentAS · **Anchor ADR:** `decisions.md` D-013
+- **Trigger:** coderAS pre-data **synthetic smoke** run (40 trees, depth 4, N=16 — *not* decision data; no canonical HIGGS numbers generated). Pre-reg **not yet frozen-at-data**, so this is a legitimate pre-data amendment under §10.
+- **Status of §5 decision rule and §6 canonical config:** **UNCHANGED** (see "No threshold moved" below). Only the §3.3 / §3.4 **engine cost model** is corrected.
+
+### A1.1 The defect found (why the spike, as written, cannot test H1)
+
+On the synthetic smoke, the primary metric **ρ = EDGE ÷ strong-scalar sustained node-evals/cycle is structurally < 1 for essentially any data**, so the spike could return **only** NO-GO and could **not discriminate H0 from H1**. That is a modelling artifact, not a result. Evidence (smoke, synthetic; N=16): `edge_ideal_rate ≈ 10.5` (EDGE keeps ~10/16 units busy — *the parallelism thesis holds when overhead-free*), but the **charged** `edge_rate` collapses to 2.63 (default) / 1.17 (conservative) against `strong_scalar = 8.0` → ρ = 0.33 / 0.15.
+
+Root cause = a **units-and-costs mismatch** between the two engine models, in **two** places:
+
+1. **Per-node cost asymmetry (§3.4 vs §3.3).** Both engines are modelled N-wide, but **only EDGE is charged a multi-cycle per-node occupancy** `c_edge = 1 + t_tag + d_disp + g` (= 4 default, 9 conservative), while the scalar is credited ~1 node-eval/cycle/lane. Two sub-faults:
+   - *(a) Shared work charged to one side.* The **feature-gather `g`** and the **child-select** are performed by **both** engines (both must load `feature[idx]` and pick the next node), yet `g` and routing are charged **only** to EDGE. Charging one engine for work both do is unfair.
+   - *(b) Un-pipelining asymmetry.* Charging `c_edge` as **exclusive unit occupancy** models EDGE units as **un-pipelined**, whereas the scalar's compare pipeline is credited **throughput 1/cycle/lane**. This contradicts EDGE's own prior-art basis: the design is a **tagged-token dataflow fabric (Monsoon lineage, D-007)**, whose PEs are *pipelined* — tag-match / gather / compare / dispatch are pipeline **stages**, so per-node latency is **hidden by independent in-flight tokens** and sustained per-unit throughput approaches 1/cycle *when fed*. Modelling EDGE as un-pipelined is an unfair strawman of the very mechanism under test.
+
+2. **Scalar cross-tree-parallelism credit (§3.3), `issue_ceiling = N`.** A batch-1 traversal of one tree is a **dependent chain** (child *k*+1 needs the compare of node *k* → within-tree ILP ≈ 1). An **in-order** superscalar issuing in program order does **not** overlap independent trees for free; it reaches width **only** via a compiler that **software-pipelines/interleaves** independent tree-chains — the same cross-tree parallelism EDGE claims. Whether the scalar "gets" that width at batch-1 is a **design call**, and it must be made explicitly rather than left implicit.
+
+Because `ρ ≈ (edge_ideal_rate / c_edge) / scalar_rate` with `edge_ideal_rate ≤ N`, `c_edge ≥ 4`, and `scalar_rate = O(N)`, ρ is **< 1 by construction** for any realistic parameters — hence the spike cannot express H1's win regime. Confirmed numerically: canonical-like params give ρ = 0.47 (default) / 0.21 (conservative) under the old model.
+
+### A1.2 Ruling on each asymmetry (fairness fix, **not** an outcome fix)
+
+Guiding rule (Feynman — do not fool yourself; §0 — analytical models are optimistic, decide on the conservative corner): **charge each engine the shared per-node work identically, and charge each only its own architecture-specific tax.** Neither ruling was chosen for its effect on GO/NO-GO; the amended model still lands **NO-GO / low-gray at the canonical conservative corner** (ρ ≈ 0.95–1.27), and reaches GO only where the *data* makes the scalar's tax large (deep trees inflate branchless work). That the fair model does **not** hand a GO is the evidence it is not GO-biased.
+
+**Asymmetry 1 — RULED: genuine unfairness → fix it (symmetric, pipelined-throughput model).** Adopt a combination of finding-options (B) and (C):
+- The **feature-gather `g`, dynamic-dispatch `d_disp`, and the pipeline-depth portion of `t_tag`** are **pipeline *latency*** (shared in function with the scalar's gather + predicted branch), **hidden by token parallelism** → they are **removed from EDGE throughput/occupancy** and enter only the **critical-path / reduction latency** term (`c_edge_lat`, below). This is symmetric with the scalar, whose per-node gather+compare latency is likewise not charged against its sustained throughput.
+- EDGE keeps two **genuine, architecture-specific throughput** overheads (so rival **R-B "overhead eats the win" stays killable**):
+  - **Operand-network bandwidth `R = R_factor·N`** — the primary EDGE throughput limiter (conservative `R_factor = 1/2`); already implemented as the per-cycle start cap in the list-scheduler.
+  - **Tag-match throughput tax `τ_tag`** — the *un-pipelinable* fraction of Monsoon-style token matching (matching-store contention/bank-conflict), charged as a per-node occupancy adder. The scalar does **no** token tagging, so this is legitimately EDGE-only. Defaults below.
+
+**Asymmetry 2 — RULED: keep the strong width-N scalar as the decision baseline; add a dependency-honest branchy *lower bound* for transparency.** A **competent** scalar tree-inference kernel **does** extract cross-tree width — that is precisely why **QuickScorer / RapidScorer** exist (branchless SIMD **across trees/rows**; `research/usecase.md §4`). EDGE's claim is **not** "only EDGE finds cross-tree parallelism"; it is "EDGE finds it via cheap dynamic dataflow **without** the branch-mispredict / predication-work-inflation tax the scalar pays." Therefore:
+   - The **decision baseline is unchanged**: `strong_scalar = max(branchy_swpipe, branchless_opt)`, both **width-N**. Weakening it to a narrow scalar would be a strawman that *helps* EDGE — the opposite of the mandate. We deliberately do **not** do that.
+   - We **add** `scalar_branchy_naive = 1/(1+p_mis·B)` (batch-1, single dependent chain, in-order, no interleaving) as a **reported R-A characterization lower bound only** — it is **not** the decision baseline. This makes the width-vs-dependency design call explicit and honest (finding-option A, used for transparency rather than to lower the bar).
+
+Net effect: the honest architectural contrast is now **"EDGE avoids branchless work-inflation (dynamic dispatch visits only the true path) but pays fabric-bandwidth + tag-match tax; the branchless scalar avoids branches but evaluates extra nodes (`pred_factor`, or the full tree)."** ρ measures who wins net — and it can land GO, gray, or NO-GO depending on the data. H1 is testable again.
+
+### A1.3 Corrected §3.3 — scalar engine (node-evals/cycle)
+
+Branchless (strong baseline — **unchanged**):
+- **`scalar_branchless_opt  = N / pred_factor`** — path-only × predication (`pred_factor` default 2.0).
+- **`scalar_branchless_pess = N · mean_W / total_internal`** — full-tree branchless.
+
+Branchy (split into two clearly-labelled points):
+- **`scalar_branchy_swpipe = min(N, I_ilp) / (1 + p_mis·B / lanes)`** — compiler software-pipelines up to `I_ilp` independent tree-chains; `I_ilp` default **= N**; `lanes = min(max(batch,1), N)`. *This is exactly the existing `scalar_branchy_rate` — the decision baseline is not weakened.*
+- **`scalar_branchy_naive  = 1 / (1 + p_mis·B)`** — **NEW**, dependency-honest batch-1 lower bound; **reported for R-A only, not the decision baseline.**
+
+Decision baseline (**rule unchanged**): **`strong_scalar = max(scalar_branchy_swpipe, scalar_branchless_opt)`**.
+
+### A1.4 Corrected §3.4 — EDGE engine (node-evals/cycle)
+
+Split the per-node cost into a **throughput (occupancy)** term and a **latency** term:
+- **`c_edge_occ = 1 + τ_tag`** — unit occupancy per node-eval (the only throughput charge on the fabric PE). `τ_tag` = un-pipelinable tag-match tax: **default 0.5, conservative 1.0, sweep {0.25, 0.5, 1.0}**.
+- **`c_edge_lat = 1 + t_tag + d_disp + g`** — pipeline **depth** (latency); used **only** for the critical path / leaf-reduction tail, **not** for sustained throughput. `t_tag, d_disp, g` keep their config values (default 1/1/1, conservative 2/2/4) but now feed `c_edge_lat`, i.e. they are latency, hidden by token parallelism.
+
+Throughput:
+- **`edge_rate`** = greedy list-schedule of the T independent tree-chains onto N units at **occupancy `c_edge_occ`**, capped at **`R = R_factor·N`** operands/cycle, with a trailing leaf-reduction of **`ceil(log2 T) · c_edge_lat`** cycles. Load imbalance / tail remain **emergent** from the schedule (unchanged mechanism).
+- **`edge_ideal_rate`** (for guardrail G3) = same schedule with **`τ_tag = 0` (occupancy 1)** and **`R = ∞`**.
+
+### A1.5 ρ and guardrails
+
+- **ρ definition — UNCHANGED:** `rho_strong = edge_rate / strong_scalar` (sustained parallel node-evals/cycle, EDGE ÷ scalar).
+- **G3 — UNCHANGED:** `overhead_fraction = 1 − edge_rate/edge_ideal_rate`; the "overhead" is now {operand-network cap + tag-match tax + load imbalance + reduction} — precisely rival R-B's mechanisms, still explicitly charged and killable.
+- **G1/G2 (footprints) — UNCHANGED.**
+
+### A1.6 No threshold moved (integrity statement)
+
+The following are **byte-for-byte unchanged** by this amendment: GO (`ρ ≥ 3×` canonical **and** `ρ ≥ 2×` across the sweep, `G1 ≤ 1 MB`, `G3 < 50%`); NO-GO (`ρ < 1.5×`, or spill, or effective `ρ < 1.5×`); gray zone `[1.5×, 3×)`; the **canonical config** (HIGGS, 500 trees, depth 6, batch-1, N=16); the **conservative corner** as the decision corner; and the metric's meaning (EDGE ÷ scalar sustained node-evals/cycle). This amendment changes **only** the internal engine cost model (§3.3 scalar variants and §3.4 EDGE occupancy-vs-latency split) so that ρ *faithfully* tests H1. The amended conservative corner adds `τ_tag = 1.0` and retains `R_factor = 0.5` (the EDGE-unfavourable values); the sweep gains one axis `τ_tag ∈ {0.25, 0.5, 1.0}` (rival R-B). Sanity check (canonical-like): amended ρ ≈ 1.27 (default) / 0.95 (conservative) — i.e. the fair model does **not** hand a GO; it reaches GO only where the data makes the scalar's tax large.

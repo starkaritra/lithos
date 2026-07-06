@@ -15,13 +15,16 @@ use case.
 Nothing is built yet. Direction is locked (D-004…D-007) **conditional on a de-risk spike (D-008)**.
 The spike is cheap ($0, days) and must run **before** any simulator work.
 **Update (2026-07-06):** the spike is now **designed & pre-registered** (D-012, `spike-prereg.md`) —
-OQ-1/OQ-2/OQ-4 resolved. **coderAS Stage A (implement the cost model to that spec) is unblocked.**
+OQ-1/OQ-2/OQ-4 resolved. coderAS built the Stage-A rig (15 tests, one-command `run.py`). On the
+**pre-data synthetic smoke**, a cost-model fairness bug was found (ρ structurally < 1 → can't test H1);
+experimentAS fixed it via timestamped **pre-reg Amendment A1** (D-013) **before** any canonical data.
+**coderAS is unblocked to implement A1 one-to-one, then run canonical HIGGS for the GO/NO-GO.**
 
 ## 3. What happens next (ordered)
 | # | Task | Owner | Blocking? | Status |
 |---|------|-------|-----------|--------|
 | 1 | Design + pre-register the cost-model spike | **experimentAS** (`handoffs/experimentAS-handoff.md`) | — | ✅ done → `spike-prereg.md`, D-012 |
-| 2 | Implement the cost model to that spec | **coderAS** (`handoffs/coderAS-handoff.md`, Stage A) | after #1 | ▶ unblocked — build to `spike-prereg.md` §3–§9 |
+| 2 | Implement the cost model to that spec | **coderAS** (`handoffs/coderAS-handoff.md`, Stage A) | after #1 | ✅ rig built (15 tests, `run.py`) · ▶ implement **Amendment A1** (D-013) then run canonical HIGGS |
 | 3 | Run + analyse → **GO / NO-GO** decision | experimentAS | after #2 | pending |
 | 4 | *If GO:* phased EDGE sim build | coderAS (Stage B) | after #3 = GO | pending |
 | 4' | *If NO-GO:* drop ML framing, pursue general-purpose EDGE | discussAS re-frame | after #3 = NO-GO | pending |
