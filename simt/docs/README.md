@@ -42,6 +42,7 @@ same skeleton:
 | 06 | [Cycle-Accurate Simulation](06-cycle-accurate-simulation.md) | What "cycle-accurate" means, the simulator taxonomy, and a full hand-derivation of our 681-cycle result. |
 | 07 | [The ISA & Assembler](07-isa-and-assembler.md) | How a kernel becomes instructions, and how our minimal instruction set compares to real PTX/SASS. |
 | 08 | [Reduction & Cross-Thread Communication](08-reduction-and-communication.md) | How independent threads combine into one answer — tree reduction, warp-synchronous sync, and why reduction diverges. |
+| 09 | [The Memory Wall, Measured](09-memory-wall-measured.md) | Measure the wall on our own machine (one access ≈ 200 arith ops), and see why it motivates Arm C (PIM). |
 | — | [Glossary](glossary.md) | Every term, defined once in plain words. |
 | — | [References](references.md) | The full, real bibliography. |
 

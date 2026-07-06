@@ -1,0 +1,13 @@
+# memory-bound kernel: almost pure DATA MOVEMENT, ~no arithmetic.
+# A scattered gather-then-scatter: read one word, write it straight back, at a strided
+# (uncoalesced) address. There is essentially no compute to hide the memory cost behind,
+# and the scatter maximizes transactions -> this kernel is limited entirely by the memory
+# system (the "memory wall"). Contrast with a compute-heavy kernel, whose arithmetic is
+# nearly free because it hides in the memory shadow. This is the workload Arm C (PIM)
+# is built to attack: move the compute to the data instead of the data to the compute.
+tid  r0
+mov  r2, 8
+imul r3, r0, r2      # address = tid * 8  (each lane in its own segment -> 32 transactions)
+ld   r1, r3          # gather
+st   r3, r1          # scatter back (no useful compute in between)
+halt

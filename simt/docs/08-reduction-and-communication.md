@@ -176,4 +176,4 @@ each doing 2 loads + 1 store (→ 15 memory ops). The test `test_reduction` asse
 - Hennessy & Patterson, *Computer Architecture: A Quantitative Approach*, 6th ed., §4.4.
 - Grove code: `kernels/reduction.sasm`, `test_reduction` in `tests/test_simt.cpp`.
 
-→ Previous: [07 — The ISA & Assembler](07-isa-and-assembler.md) · Back to [index](README.md)
+→ Previous: [07 — The ISA & Assembler](07-isa-and-assembler.md) · Next: [09 — The Memory Wall, Measured](09-memory-wall-measured.md)

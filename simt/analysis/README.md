@@ -17,6 +17,7 @@ Outputs to `analysis/out/` (git-ignored — regenerate any time):
 | `latency_hiding.png` | cycles vs #warps — stays ~flat while a "if not hidden" line grows linearly: **16× the work costs ~7% more time** because extra warps hide memory latency (chapter 03). |
 | `coalescing.png` | transactions & cycles vs access stride — contiguous (stride 1) = 4 transactions, scattered (stride 8) = 32, with cycles rising in step (chapter 04). |
 | `divergence.png` | cycles & divergent-branch count vs branch threshold — uniform endpoints are ~half the cost of a split warp in the middle (chapter 05). |
+| `memory_wall.png` | cycles vs arithmetic-ops-per-access — a straight line `cycles = memory-floor + K` showing ~one memory access costs hundreds of arithmetic ops; the shaded region is the memory-bound "wall" (chapter 09). |
 | `sweeps.csv` | the raw numbers behind all three plots. |
 
 ## Why a separate layer?

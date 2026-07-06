@@ -77,6 +77,14 @@ few transactions. The #1 practical GPU optimization. Uncoalesced (scattered) acc
 Uncoalesced access pushes you toward the bandwidth roof (the memory wall). (Williams et al.,
 2009.)
 
+**Arithmetic intensity** — compute operations performed per byte (or per access) of data
+moved. Low intensity → memory-bound (left of the roofline knee); high intensity → compute-bound.
+Measured directly in [ch. 09](09-memory-wall-measured.md).
+
+**Compute-bound / bandwidth-bound** — a kernel is compute-bound if arithmetic throughput limits
+it, bandwidth-bound (memory-bound) if data movement limits it. Most memory-heavy kernels
+(gathers, sparse ops) are bandwidth-bound — the case PIM (Arm C) targets.
+
 **Branch divergence** — when lanes in a warp take different branches of an `if`, the warp must
 execute both paths *serially* (masking off the other lanes each time), wasting throughput.
 The reason GPUs suit regular workloads and struggle with irregular/branchy ones. (See

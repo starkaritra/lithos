@@ -75,6 +75,14 @@ def k_divergence(threshold: int) -> str:
     )
 
 
+def k_intensity(k_ops: int) -> str:
+    """Load one word, do k_ops arithmetic ops on it, store it. Varying k_ops sweeps the
+    arithmetic intensity (compute per memory access) — the axis of the roofline / wall."""
+    body = "tid r0\nld r1, r0\nmov r2, 1\n"
+    body += "iadd r1, r1, r2\n" * k_ops
+    return body + "st r0, r1\nhalt\n"
+
+
 # ---- experiments -------------------------------------------------------------
 def sweep_latency_hiding(binary, rows):
     warps = [1, 2, 4, 8, 16]
@@ -140,6 +148,33 @@ def sweep_divergence(binary, rows):
     _save(fig, "divergence.png")
 
 
+def sweep_memory_wall(binary, rows):
+    # One memory load + K arithmetic ops + one store, single warp (latency exposed).
+    ks = [0, 25, 50, 100, 200, 400]
+    cyc = []
+    for k in ks:
+        r = run(binary, k_intensity(k), n_threads=32, mem_words=40)
+        rows.append({"experiment": "memory_wall", "x": k, **r})
+        cyc.append(r["cycles"])
+    floor = cyc[0]  # K=0: the time is ~entirely the two memory accesses
+
+    fig, ax = plt.subplots(figsize=(7.5, 5))
+    ax.plot(ks, cyc, "o-", label="cycles = memory floor + compute")
+    ax.axhline(floor, ls="--", color="gray")
+    ax.text(ks[-1], floor, f" memory floor ≈ {floor} cyc\n (2 accesses, ~no compute)",
+            va="bottom", ha="right", fontsize=8, color="gray")
+    # Region where compute (K cycles) is smaller than the memory floor = memory-bound.
+    ax.axvspan(0, floor, alpha=0.08, color="tab:red")
+    ax.text(floor / 2, max(cyc) * 0.55,
+            "MEMORY-BOUND\n(the wall:\ncompute < 1 access)",
+            ha="center", fontsize=8, color="tab:red")
+    ax.set_xlabel("arithmetic ops per memory access (K)")
+    ax.set_ylabel("cycles")
+    ax.set_title("The memory wall: ~one access costs hundreds of arithmetic ops [modelled]")
+    ax.legend(loc="upper left"); ax.grid(alpha=0.3)
+    _save(fig, "memory_wall.png")
+
+
 def _save(fig, name):
     path = os.path.join(OUT, name)
     fig.savefig(path, dpi=120)
@@ -155,6 +190,7 @@ def main():
     sweep_latency_hiding(binary, rows)
     sweep_coalescing(binary, rows)
     sweep_divergence(binary, rows)
+    sweep_memory_wall(binary, rows)
 
     csv_path = os.path.join(OUT, "sweeps.csv")
     keys = ["experiment", "x", "n_threads", "n_warps", "cycles", "warp_instructions",

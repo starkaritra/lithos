@@ -36,8 +36,12 @@ Arm A.**
 | — | ~~*If GO:* EDGE sim build~~ / ~~*NO-GO:* general-purpose EDGE~~ | — | — | ✖ superseded by the D-015 pivot |
 | 4 | **Pivot to the A→C arc (mini-GPU → PIM)** | owner + coderAS | after #3 | ✅ decided (D-015) |
 | 5 | **Settle v1 (Arm A) scope: ISA + kernel lang + first kernels + stack** (OQ-6,7,9) | **coderAS** (+owner sign-off) | after #4 | ▶ **ACTIVE — next action** |
-| 6 | Build Arm A v1: SIMT sim + compiler + kernels; instrument divergence/coalescing/occupancy | coderAS | after #5 | ⏳ pending scope |
-| 7 | Arm C v2: PIM model + ISA on a memory-bound kernel; measure data-movement win (OQ-8) | coderAS | after #6 | ⏳ later |
+| 6 | Build Arm A v1: SIMT sim + compiler + kernels; instrument divergence/coalescing/occupancy | coderAS | after #5 | ✅ SIMT spine, divergence, reduction; latency-hiding/coalescing/divergence/memory-wall all measured + a 9-chapter GPU-arch course (`simt/docs/`) |
+| 6b | Expose the memory wall (the forcing function for Arm C) | coderAS | after #6 | ✅ measured: one access ≈ 225 arith ops (`cycles=451+K`); scattered gather = 6 instrs / 900 cyc / 64 txns. `simt/docs/09` |
+| 7 | Arm C v2: PIM model + ISA on a memory-bound kernel; measure data-movement win (OQ-8) | coderAS (+ discussAS/experimentAS to scope) | after #6b | ▶ **NEXT** — metric: off-chip bytes moved / modelled energy vs the Arm-A baseline |
+
+**Optional Arm A extensions (not blocking Arm C):** tiled matmul (needs thread blocks + shared
+memory), a bandwidth-capped memory model, warp-shuffle reduction.
 
 ## 4. The non-negotiables
 - **$0** — free tools only (Python now; Verilator/Icarus later). No paid hardware.
