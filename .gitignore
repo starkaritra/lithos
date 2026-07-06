@@ -15,3 +15,7 @@ simt/build/
 
 # Analysis layer plots/CSV (derived — regenerate with analysis/sweep.py)
 simt/analysis/out/
+
+# Arm C PIM build + derived outputs
+pim/build/
+pim/out/
