@@ -38,6 +38,7 @@ def _apply_smoke(cfg: dict) -> dict:
         "batch": [1, 8],
         "N_units": [8, 16],
         "p_mis": [0.3],
+        "tau_tag": [0.5, 1.0],
         "bytes_per_node": [16],
     }
     return cfg

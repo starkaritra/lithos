@@ -20,17 +20,31 @@ from .inference import InferenceStats
 
 @dataclass
 class EdgeOverheads:
-    t_tag: float = 1.0     # token tag-match, per node-eval occupancy adder
-    d_disp: float = 1.0    # dynamic dispatch (route to child), per node-eval
-    g: float = 1.0         # on-chip indexed feature-gather, per node-eval
-    R_factor: float = 1.0  # operand-network bandwidth cap R = R_factor * N
+    """EDGE cost knobs (spike-prereg.md §3.4 as revised by Amendment A1).
 
-    def c_edge(self) -> float:
-        """Per node-eval unit occupancy in cycles (§3.4)."""
+    A1 split occupancy from latency: tag-match/dispatch/gather are Monsoon-style
+    *pipeline stages* whose depth is hidden by in-flight tokens (latency), NOT a
+    per-node throughput tax. Only the un-pipelinable tag-match tax `tau_tag` and
+    the operand-network cap `R` reduce sustained throughput.
+    """
+
+    t_tag: float = 1.0      # tag-match pipeline depth (latency only)
+    d_disp: float = 1.0     # dynamic-dispatch pipeline depth (latency only)
+    g: float = 1.0          # feature-gather pipeline depth (latency only)
+    R_factor: float = 1.0   # operand-network bandwidth cap R = R_factor * N
+    tau_tag: float = 0.5    # un-pipelinable tag-match THROUGHPUT tax (occupancy)
+
+    def c_edge_occ(self) -> float:
+        """Per node-eval unit *occupancy* in cycles — the only throughput charge."""
+        return 1.0 + self.tau_tag
+
+    def c_edge_lat(self) -> float:
+        """Per node-eval pipeline *depth* — latency only (critical path + reduction)."""
         return 1.0 + self.t_tag + self.d_disp + self.g
 
 
-IDEAL_OVERHEADS = EdgeOverheads(t_tag=0.0, d_disp=0.0, g=0.0, R_factor=float("inf"))
+IDEAL_OVERHEADS = EdgeOverheads(t_tag=0.0, d_disp=0.0, g=0.0,
+                                R_factor=float("inf"), tau_tag=0.0)
 
 
 # --------------------------------------------------------------------------- #
@@ -47,6 +61,14 @@ def scalar_branchy_rate(N: int, p_mis: float, B: float, batch: int) -> float:
     lanes = min(max(batch, 1), N)
     eff_penalty = p_mis * B / lanes
     return N / (1.0 + eff_penalty)
+
+
+def scalar_branchy_naive_rate(p_mis: float, B: float) -> float:
+    """Dependency-honest lower bound: a naive in-order scalar single-issues the
+    dependent traversal chain (within-tree ILP ~= 1). Reported to characterise
+    rival R-A only (spike-prereg.md Amendment A1) — NOT the decision baseline.
+    """
+    return 1.0 / (1.0 + p_mis * B)
 
 
 def scalar_branchless_rates(ens: Ensemble, mean_W: float, N: int,
@@ -67,14 +89,16 @@ def scalar_branchless_rates(ens: Ensemble, mean_W: float, N: int,
 # --------------------------------------------------------------------------- #
 # EDGE engine (§3.4) — greedy list-schedule of independent chains onto N units
 # --------------------------------------------------------------------------- #
-def schedule_makespan(chain_lengths: np.ndarray, N: int, c_edge: float,
+def schedule_makespan(chain_lengths: np.ndarray, N: int, c_edge_occ: float,
                       R: float) -> float:
     """Makespan (cycles) to run independent dependent chains on N units.
 
     Each chain is a serial path of node-evals (a child cannot start before its
-    parent finishes). Each node-eval occupies one unit for `c_edge` cycles. At
-    most `R` node-evals may *start* per integer cycle (operand-network cap).
-    Load imbalance is emergent: short chains drain and units idle at the tail.
+    parent finishes). Each node-eval occupies one unit for `c_edge_occ` cycles
+    (Amendment A1: occupancy = 1 + tau_tag only; gather/dispatch are latency,
+    not occupancy). At most `R` node-evals may *start* per integer cycle
+    (operand-network cap). Load imbalance is emergent: short chains drain and
+    units idle at the tail.
     """
     chain_lengths = chain_lengths[chain_lengths > 0]
     if chain_lengths.size == 0:
@@ -99,7 +123,7 @@ def schedule_makespan(chain_lengths: np.ndarray, N: int, c_edge: float,
             if bucket > start:
                 start = float(bucket)
             starts_in_cycle[bucket] = starts_in_cycle.get(bucket, 0) + 1
-        finish = start + c_edge
+        finish = start + c_edge_occ
         heapq.heappush(units, finish)
         if finish > makespan:
             makespan = finish
@@ -115,10 +139,12 @@ def edge_rate(path_len: np.ndarray, row_idx: np.ndarray, n_trees: int, N: int,
 
     Rows are grouped into inferences of size `batch`; each group's chains are
     scheduled together. Throughput is time-averaged: sum(work)/sum(makespan).
+    Occupancy uses c_edge_occ (throughput tax); the reduction tail uses the full
+    pipeline depth c_edge_lat (latency), per Amendment A1.
     """
-    c_edge = ov.c_edge()
+    c_edge_occ = ov.c_edge_occ()
     R = ov.R_factor * N
-    reduction = math.ceil(math.log2(max(n_trees, 1))) * c_edge
+    reduction = math.ceil(math.log2(max(n_trees, 1))) * ov.c_edge_lat()
 
     order = row_idx.copy()
     rng.shuffle(order)
@@ -131,7 +157,7 @@ def edge_rate(path_len: np.ndarray, row_idx: np.ndarray, n_trees: int, N: int,
         w = float(chains.sum())
         if w == 0:
             continue
-        makespan = schedule_makespan(chains, N, c_edge, R) + reduction
+        makespan = schedule_makespan(chains, N, c_edge_occ, R) + reduction
         total_work += w
         total_cycles += makespan
 

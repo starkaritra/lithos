@@ -35,8 +35,8 @@ scalar:
 # ---- EDGE overheads (§3.4). "default" is charged in the sweep; "conservative"
 #      corner drives the GO/NO-GO decision. ---------------------------------------
 edge:
-  default:   { t_tag: 1.0, d_disp: 1.0, g: 1.0, R_factor: 1.0 }   # R = R_factor * N
-  conservative: { t_tag: 2.0, d_disp: 2.0, g: 4.0, R_factor: 0.5 }
+  default:   { t_tag: 1.0, d_disp: 1.0, g: 1.0, R_factor: 1.0, tau_tag: 0.5 }   # R = R_factor * N
+  conservative: { t_tag: 2.0, d_disp: 2.0, g: 4.0, R_factor: 0.5, tau_tag: 1.0 }
 
 # ---- Pre-registered sensitivity sweep (§6). One axis at a time around canonical. ----
 sweep:
@@ -45,6 +45,7 @@ sweep:
   batch:        [1, 8, 64, 256]
   N_units:      [4, 8, 16, 32]
   p_mis:        [0.1, 0.3, 0.5]     # plus the data-grounded estimate (always computed)
+  tau_tag:      [0.25, 0.5, 1.0]    # A1 rival R-B: un-pipelinable tag-match throughput tax
   bytes_per_node: [12, 16, 24]
 
 # ---- GO/NO-GO thresholds (OQ-1, §5). Reported by decision.py; experimentAS renders. --

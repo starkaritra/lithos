@@ -10,7 +10,8 @@ from __future__ import annotations
 import numpy as np
 
 from .costmodel import (IDEAL_OVERHEADS, EdgeOverheads, edge_rate, footprints,
-                        scalar_branchless_rates, scalar_branchy_rate)
+                        scalar_branchless_rates, scalar_branchy_naive_rate,
+                        scalar_branchy_rate)
 from .datasets import DataBundle, train_or_load
 from .ensemble import Ensemble, parse_booster
 from .inference import InferenceStats, run_inference
@@ -19,7 +20,7 @@ from .inference import InferenceStats, run_inference
 def _overheads(cfg: dict, corner: str) -> EdgeOverheads:
     o = cfg["edge"][corner]
     return EdgeOverheads(t_tag=o["t_tag"], d_disp=o["d_disp"], g=o["g"],
-                         R_factor=o["R_factor"])
+                         R_factor=o["R_factor"], tau_tag=o["tau_tag"])
 
 
 def _sched_rows(n_eval: int, batch: int, base: int = 300) -> np.ndarray:
@@ -40,6 +41,7 @@ def evaluate_point(ens: Ensemble, stats: InferenceStats, cfg: dict, *,
     pred_factor = cfg["scalar"]["branchless_predication_factor"]
 
     branchy = scalar_branchy_rate(N, p_mis, B, batch)
+    branchy_naive = scalar_branchy_naive_rate(p_mis, B)  # R-A characterisation only
     bl_opt, bl_pess = scalar_branchless_rates(ens, stats.mean_W, N, pred_factor)
     strong_scalar = max(branchy, bl_opt)  # conservative for EDGE
 
@@ -55,10 +57,12 @@ def evaluate_point(ens: Ensemble, stats: InferenceStats, cfg: dict, *,
     return {
         "N": N, "batch": batch, "p_mis": round(p_mis, 4),
         "bytes_per_node": bytes_per_node,
-        "c_edge": ov.c_edge(), "R_factor": ov.R_factor,
+        "c_edge_occ": ov.c_edge_occ(), "c_edge_lat": ov.c_edge_lat(),
+        "tau_tag": ov.tau_tag, "R_factor": ov.R_factor,
         "n_trees": ens.n_trees, "total_nodes": ens.total_nodes,
         "mean_W": round(stats.mean_W, 3), "L_star": round(stats.mean_path_max + np.log2(max(ens.n_trees, 1)), 3),
         "scalar_branchy": round(branchy, 4),
+        "scalar_branchy_naive": round(branchy_naive, 4),
         "scalar_branchless_opt": round(bl_opt, 4),
         "scalar_branchless_pess": round(bl_pess, 4),
         "strong_scalar": round(strong_scalar, 4),
@@ -138,6 +142,11 @@ def run_sweep(bundle: DataBundle, cfg: dict, seed: int, log=print) -> dict:
         rows.append(point(ens0, stats0, axis="N_units", value=n, N=n))
     for pm in cfg["sweep"]["p_mis"]:
         rows.append(point(ens0, stats0, axis="p_mis", value=pm, p_mis=pm))
+    for tt in cfg["sweep"]["tau_tag"]:
+        ov_tt = EdgeOverheads(t_tag=ov_default.t_tag, d_disp=ov_default.d_disp,
+                              g=ov_default.g, R_factor=ov_default.R_factor,
+                              tau_tag=tt)
+        rows.append(point(ens0, stats0, axis="tau_tag", value=tt, ov=ov_tt))
     for bpn in cfg["sweep"]["bytes_per_node"]:
         rows.append(point(ens0, stats0, axis="bytes_per_node", value=bpn, bpn=bpn))
     # Overhead corner as an explicit sweep point (rival R-B).
