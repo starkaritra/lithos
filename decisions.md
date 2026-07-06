@@ -1,0 +1,119 @@
+# Grove — Decision Log (ADRs)
+
+Each entry is a decision, its rationale, and its status. Confidence tags:
+`[verified]` = checked against a primary source · `[believed]` = reasoned inference · `[guess]` = low grounding.
+Decisions are a **mutable snapshot** — challenge and update them; don't defend them.
+
+---
+
+**D-001 — Goal & constraints.** The project optimizes for **genuine novelty + portfolio/research
+signal**, not beginner learning (the builder already knows CS fundamentals). Hard constraints: **$0,
+simulation-first, solo, months-scale.** `[verified: builder statement]`
+
+**D-002 — Compute-not-graphics scope cut** *(from the initial GPU exploration; now historical).* Any
+accelerator here targets *compute*, never a graphics pipeline (rasteriser/textures). Recorded because
+the reasoning still applies to scope discipline. `[known]`
+
+**D-003 — The original GPU/CUDA/tensor dream is NOT a novelty path.** As of Dec 2025 the open
+full-stack exists: **Vortex** (RISC-V SIMT GPGPU + LLVM + OpenCL/CUDA), **Ten-Four** (open
+tensor/MMA unit), **Gemmini** (open systolic matmul). Building it would be *learning*, not novelty —
+competing with funded labs on their turf. **Pivoted away.** `[verified: repos + arXiv 2002.12151, 2512.00053]`
+
+**D-004 — Architecture chosen: EDGE, built from scratch.** An **EDGE** (Explicit Data Graph
+Execution) **block-atomic dataflow** core — its own ISA, a hand-rolled compiler, and a cycle-accurate
+simulator. Dataflow *inside* a block, control flow *between* blocks; instructions name their
+consumers ("target form") and fire when operands arrive, so there is no shared-register-file traffic
+inside a block. `[known]`
+
+**D-005 — Novelty framing (be honest).** EDGE is **prior art** (TRIPS, UT Austin ~2003–2009;
+Microsoft E2 ~2013). We are **not** inventing it. The contribution is *the first open, minimal,
+readable, reproducible **full-stack** EDGE implementation with a **measured** result*, plus our own
+micro-innovations (block-formation heuristic, operand-network / dispatch design). Frame it as
+reproduction + extension + measurement, never as invention. `[verified: TRIPS/E2 published]`
+
+**D-006 — AI angle (use-case-grounded): tree-ensemble INFERENCE.** The only ML workload that is
+genuinely **control-bound with a small on-chip working set** — where EDGE can win — is
+**gradient-boosted decision-tree ensemble inference** (XGBoost / LightGBM), especially **batch-1
+online serving** (fraud, ad/search ranking, real-time bidding). GPUs lose here to *warp divergence*;
+that is why Tahoe / QuickScorer / RapidScorer exist. **Explicitly NOT deep-learning / LLM training** —
+that is memory-bandwidth / GEMM / interconnect-bound and already owned. `[verified: DLRM 1906.00091, HyGCN 2001.02514, MegaBlocks 2211.15841, Tahoe EuroSys'21]`
+
+**D-007 — Extension keeps the EDGE core (not a pivot).** Base EDGE is *static* block-atomic
+dataflow. Add three small *dynamic* mechanisms: (1) **data-dependent next-block dispatch** (route by
+a comparison result), (2) **Monsoon-style token tagging** so thousands of independent tree
+traversals run concurrently on one fabric, (3) a **lightweight on-chip indexed feature-load**.
+Prior-art spine: **tagged-token dataflow** (Arvind/Monsoon, ISCA 1990), **WaveScalar** (MICRO 2003).
+`[verified]`
+
+**D-008 — GATE before building (the one-way-door guard).** Do **not** build the simulator until a
+$0, days-long **Python cost-model spike** over a *real trained XGBoost model* confirms the win. See
+`handoffs/experimentAS-handoff.md`. **GO** if EDGE-issue functional-unit utilisation ≫ scalar
+baseline **and** the per-inference working set fits on-chip; **NO-GO** → fall back to a
+general-purpose EDGE contribution without ML framing. `[believed]`
+
+**D-009 — Build vehicle.** Cycle-accurate **software** simulator first (fast to instrument for the
+co-design experiments that are the whole point). **Hand-rolled compiler**, *no LLVM* for v1.
+Synthesizable Verilog (Verilator) is a **Phase-4 stretch**, not v1. The **compiler + measurement rig
+is the real differentiator, not the RTL.** `[believed]`
+
+**D-010 — Reviewer critique to pre-empt.** A sharp reviewer will ask *"why not a fixed-function FPGA
+tree pipeline that beats your programmable core?"* Our only honest defense: **programmability /
+generality** (one fabric for trees *and* other control-heavy code) + the **open full-stack**
+contribution. If we can't defend that, novelty shrinks — keep this in view. `[believed]`
+
+**D-011 — Parked next project.** After Grove: an **"AI-architecture-bottleneck-focused"** build
+targeting the *real* deep-learning bottlenecks — memory bandwidth/capacity, irregular-memory latency,
+MoE all-to-all interconnect (e.g. near-memory / PIM or interconnect architecture; LLM KV-cache,
+recsys embeddings). Complements Grove, which by design cannot touch these. `[verified: builder request]`
+
+**D-012 — Spike design pre-registered (resolves OQ-1, OQ-2, OQ-4).** The D-008 gate is now designed
+and **pre-registered** in `spike-prereg.md` (append-only once data is generated). Summary of the
+committed design:
+- **Falsifiable claim.** Primary metric **ρ = sustained parallel node-evals/cycle (EDGE) ÷ (scalar)**,
+  at equal functional-unit budget *N*, equal clock, equal on-chip feature memory, batch-1, **with EDGE
+  overheads charged**. H1: ρ ≥ 3× at the canonical config against the *conservative* baseline and
+  ρ ≥ 2× across the sweep **and** the resident model fits on-chip. H0: ρ ≤ 1.5× and/or it spills.
+  Three rival hypotheses are pre-committed to be killed: scalar-is-predictable, overhead-eats-the-win,
+  and it-spills.
+- **OQ-2 (dataset/config) resolved:** canonical = **HIGGS** (28 features, binary) at
+  `n_estimators=500, max_depth=6, hist, binary:logistic, seed=42`, cost-modelled over 1,000 real test
+  rows; **Covertype** (54 feat, 7-class) as the multiclass robustness dataset. Sweep: #trees {100,300,
+  500,1000}, depth {4,6,8,10}, batch {1,8,64,256}, N {4,8,16,32}, plus `p_mis` and overhead corners.
+- **OQ-4 (fair baseline) resolved:** equal-resource scalar = an **N-wide *in-order* superscalar
+  RISC-V** with the same N compare units, clock, and on-chip feature SRAM; decision uses the *stronger*
+  of a branchy (data-grounded misprediction penalty) and a branchless/QuickScorer-style variant.
+  Comparison to an idealised OoO core is explicitly out of scope and flagged as a Stage-B caveat.
+- **OQ-1 (thresholds) resolved:** **GO** iff ρ ≥ 3× (canonical) **and** ρ ≥ 2× (all sweep points)
+  against the conservative baseline **and** resident footprint ≤ 1 MB on-chip **and** overheads < 50%
+  of ideal EDGE throughput. **NO-GO** if ρ < 1.5× **or** it spills **or** overheads drive effective
+  ρ < 1.5×. **Gray zone** 1.5×–3× → diagnose the binding limiter, name the un-killed rival, decide with
+  stated confidence (conditional-GO or NO-GO). Decision is on the **canonical config at the
+  conservative corner**; the sweep is descriptive; no threshold moves after data.
+- **Honesty rail.** This is an analytical cost model: every number is `[modelled]`, not `[measured]`.
+  A GO *licenses building the simulator*, it does not claim a silicon win. Report effect size + a
+  sensitivity range, never a single hero number. `[believed]`
+
+---
+
+## Open questions (decide before or during the relevant phase)
+- **OQ-1** — Exact GO/NO-GO thresholds for the spike. **RESOLVED (D-012, `spike-prereg.md` §5):** GO iff
+  ρ ≥ 3× (canonical) & ρ ≥ 2× (all sweep) vs the conservative baseline & resident ≤ 1 MB & overhead
+  < 50%; NO-GO if ρ < 1.5× or spill; gray zone 1.5×–3× → diagnose & decide with stated confidence.
+- **OQ-2** — Which tabular dataset + XGBoost config is the canonical benchmark? **RESOLVED (D-012,
+  `spike-prereg.md` §6):** HIGGS (28 feat, binary), 500 trees / depth 6 / hist; Covertype as multiclass
+  robustness set; full sensitivity sweep pre-committed.
+- **OQ-3** — Restricted input language for the Phase-2 compiler: compile *from an XGBoost model dump*
+  directly (recommended) vs a general DSL (scope risk). *(Still open — Phase-2 concern, not the spike.)*
+- **OQ-4** — Baseline definition: "equal-resource scalar RISC-V." **RESOLVED (D-012, `spike-prereg.md`
+  §4):** N-wide in-order superscalar, same N compare units / clock / on-chip feature SRAM; decision uses
+  the stronger of branchy (data-grounded p_mis) and branchless variants; OoO comparison out of scope.
+- **OQ-5** — Project name (Grove is a placeholder). *(Still open.)*
+
+## Risk & assumption ledger
+| ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
+|----|----|----|----|----|----|----|----|
+| R2 | "No open full-stack EDGE" is an *absence* claim | [believed] | M | H | no | Focused prior-art pass (partly done in research/) | open |
+| R3 | Phase-2 block-forming compiler sinks the project | [known] hard | H | H | no | Phase-1 hand-written blocks prove microarch first | mitigated |
+| R6 | AI angle is DL-training (not deliverable by EDGE) | [verified] | — | — | — | Accepted tree-inference framing instead | retired |
+| R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **spike DESIGNED & pre-registered (D-012); awaiting coderAS Stage A build → then GO/NO-GO** |
+| R8 | "Fixed-function FPGA beats you" critique | [believed] | M | M | no | Frame as programmability + open stack (D-010) | open |
