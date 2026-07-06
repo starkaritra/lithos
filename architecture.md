@@ -1,106 +1,134 @@
 # Grove — Architecture
 
-This document motivates the design before it specifies it. If a term isn't defined, it's defined at
-first use. The **detailed** ISA spec is deliberately deferred to Phase 0 (below) — this is the
-orientation, not the final contract.
+This document motivates each design before it specifies it (if a term isn't defined, it's defined at
+first use). Grove has **two built arms** — a mini-GPU (Arm A) and a near-memory/PIM model (Arm C) —
+plus a **concluded spike** whose negative result reshaped the project. Read `README.md` for the story
+and `decisions.md` for the decision log; this file is the technical design.
+
+> **History note.** Grove began as an **EDGE dataflow accelerator** aimed at XGBoost tree-ensemble
+> inference. A pre-registered cost-model spike returned **NO-GO** (decisions D-008…D-014): a competent
+> branchless CPU already neutralizes tree branching, so the win wasn't there. The project then pivoted
+> (D-015) to the **A→C arc** documented below. The EDGE design is retired; this document specifies what
+> was actually built.
 
 ---
 
-## 1. The problem EDGE attacks
-A conventional CPU is **von Neumann**: one instruction stream, and instructions communicate through a
-shared **register file** (instruction A writes register `r5`, instruction B reads `r5`). To run fast,
-modern out-of-order CPUs spend huge power and silicon *discovering at runtime* which instructions are
-independent (register renaming, dependency tracking, wakeup/select, a big scheduler). This scales
-badly — roughly, doubling the parallelism quadruples the bookkeeping. That ceiling is the
-**instruction-level-parallelism (ILP) wall**.
+## 0. The one idea both arms orbit: the memory wall
+Arithmetic is cheap and fast; moving data to/from memory is slow and energy-expensive, and the gap has
+grown for decades (Wulf & McKee 1995). A modern chip can do ~100+ arithmetic ops in the time it takes to
+fetch one number from off-chip DRAM. So the real question for any high-throughput machine is not "how
+fast is the arithmetic?" but **"how do you keep the arithmetic units fed despite slow memory?"**
 
-**EDGE's bet:** stop rediscovering parallelism at runtime. Let the **compiler** express it once, as a
-**dataflow graph**, and build hardware that just executes the graph.
+Grove's two arms are two answers, measured:
+- **Arm A (mini-GPU)** — the mainstream answer: *tolerate* the wall with massive parallelism (hide
+  latency behind many threads; minimize transactions via coalescing). It then *measures* that
+  memory-bound kernels stall anyway.
+- **Arm C (PIM)** — the radical answer: *don't move the data* — put compute in the memory banks and ship
+  only results. It *measures* how much data movement that actually saves, and where it stops helping.
 
-## 2. The execution model
-**EDGE = Explicit Data Graph Execution.** Two moving parts:
+---
 
-**(a) Block-atomic execution.** The compiler chops the program into **hyperblocks** — chunks of ~tens
-of instructions, single-entry, single-exit, with internal branches removed by **predication** (a
-branch becomes a conditionally-executed instruction rather than a jump). A block commits all-or-nothing.
-Control flow lives *between* blocks; dataflow lives *inside* them. → *dataflow in the small, von
-Neumann in the large.*
+## 1. Arm A — the mini-GPU (SIMT)
 
-**(b) Target-form dataflow.** Inside a block, instructions **do not write registers**. Each
-instruction names *which instruction(s) consume its result*, and **fires the instant its operands
-arrive**. No intra-block register-file traffic → none of the renaming/scheduling machinery is needed.
+### 1.1 The problem it models
+A GPU is a **throughput** machine: it spends its silicon on a huge array of simple arithmetic lanes
+rather than on making one thread fast. To program that array without hand-packing vectors, NVIDIA's
+model is **SIMT** (Single-Instruction, Multiple-Thread): you write per-thread code; the hardware runs
+threads in lockstep groups (**warps**) on SIMD lanes. Arm A is a from-scratch, cycle-accurate SIMT core
+built so the throughput-machine phenomena are **emergent and measurable**, not asserted.
 
-Tiny example — compute `d = (a+b) * (a-c)`:
-```
-conventional (register file)       EDGE (target form)
-  ADD r3, r1, r2   ; a+b             I0: ADD -> I2.left     ; result routed INTO I2's left input
-  SUB r4, r1, r5   ; a-c             I1: SUB -> I2.right    ; result routed INTO I2's right input
-  MUL r6, r3, r4                     I2: MUL -> out         ; fires when BOTH inputs have arrived
-```
-I0 and I1 are independent → they run the **same cycle** on a grid of ALUs; I2 fires when both land.
-The hardware is a **tile grid** of small ALUs plus an **operand network** that ferries results
-directly between tiles. Parallelism was *named by the compiler*, not hunted at runtime.
+### 1.2 The execution model (`simt/include/simt/core.hpp`, `src/core.cpp`)
+- **Warp** = `WARP_SIZE = 32` lanes sharing **one program counter**, executing one instruction per
+  cycle in lockstep. A per-lane **active mask** tracks which lanes are live (partial warps; divergence).
+- **Single-issue, round-robin warp scheduler.** One warp issues per cycle; a warp that issued a
+  long-latency memory op is "busy" (`ready_at` in the future), so the scheduler fills those cycles with
+  *other* ready warps → **latency hiding** falls out of the schedule, not a special case.
+- **Registers** are per-lane (`NREGS = 16` int32), so the same instruction computes different results
+  per lane (that is SIMT).
 
-## 3. The ISA sketch (finalise in Phase 0)
-- **Block header:** #instructions, #block-outputs, #inputs, predicate map.
-- **Instruction encoding:** opcode + **target field(s)** (which slot(s) consume the result) + optional predicate.
-- **Block commit semantics:** a block's stores/outputs become visible only on atomic commit.
-- **Inter-block:** block-address sequencing + a small set of live values passed between blocks.
-- Keep it **minimal and readable** — the novelty is an *open, one-person-comprehensible* ISA, not a rich one.
+### 1.3 The memory model
+- **Word-addressed global memory.** A memory instruction's cost = `mem_latency + (transactions − 1) ×
+  mem_txn_penalty`, where **transactions = the number of distinct memory *segments*** (`segment_words`,
+  default 8) touched by the warp's active lanes. Contiguous access → few transactions (**coalesced**);
+  scattered → up to 32 (**uncoalesced**). This makes coalescing a measurable effect.
 
-## 4. The dynamic-dataflow extension (what makes it serve trees)
-Base EDGE is *static*. Tree inference needs **data-dependent control** (which child you visit depends
-on a feature comparison) and **massive independent parallelism** (thousands of trees, each traversed
-independently). Add three small mechanisms — this is the **extension, not a pivot**:
+### 1.4 The ISA (`simt/include/simt/isa.hpp`) — minimal by design (10 ops)
+`mov` · `tid` (global thread id) · `iadd` · `imul` · `slt` (set-less-than → predicate) · `ld` · `st` ·
+`jmp` · `bra` (predicated branch → divergence, with an else + join target) · `halt`. A two-pass
+assembler with labels (`src/assembler.cpp`). Branch **divergence** is implemented with a per-warp
+**reconvergence stack** (Fung et al.): when a warp's lanes disagree, the paths run serially under masks
+and reconverge at the join — so divergence cost is emergent and measurable.
 
-1. **Data-dependent next-block dispatch** — the next block to execute is chosen by a comparison
-   result (`feature[i] < threshold ?`), i.e. tree branching becomes block routing.
-2. **Monsoon-style token tagging** — tag operands with a context id so many independent tree
-   traversals (and many input rows) run concurrently on one fabric without interfering. *(Basis:
-   tagged-token dataflow, Arvind/Monsoon, ISCA 1990.)*
-3. **On-chip indexed feature-load** — a lightweight gather of `feature[i]` from an on-chip feature
-   vector (the working set is small — it stays on-chip, which is the whole reason EDGE can win here).
+### 1.5 What it measures (all reproducible; see `simt/docs/` and `simt/analysis/`)
+- **Latency hiding / occupancy** — 16× the warps costs ~7% more cycles (memory latency overlapped).
+- **Coalescing** — stride 1→8 = 4→32 transactions.
+- **Divergence** — a split warp runs both paths serially (measured vs a uniform warp).
+- **Reduction** — a `log₂(n)` tree; warp-synchronous; every step diverges.
+- **The memory wall** — one memory access ≈ 225 arithmetic ops; a scattered gather = 6 instructions but
+  ~900 cycles. This is the forcing function that motivates Arm C.
 
-*(WaveScalar, MICRO 2003, is the proof-of-concept that dataflow handles general control cleanly —
-cite as the design precedent.)*
+### 1.6 Deliberately omitted (parking lot)
+Branch prediction, out-of-order execution, large caches (CPU answers to a different question); thread
+blocks + shared memory, warp-shuffle, a bandwidth-capped SIMT model, tiled matmul, RTL. These are
+optional extensions, not needed to teach the core throughput-machine ideas.
 
-## 5. How a tree ensemble maps onto the fabric
-- Each **tree node** = a compare-and-route block: load `feature[i]`, compare to `threshold`, dispatch
-  to the left/right child block; leaves emit a partial score.
-- The **ensemble** = thousands of independent traversals, tagged and interleaved across the tile grid
-  → this is the parallelism GPUs *can't* exploit (different rows diverge → warp stalls) but a
-  tagged-token dataflow fabric *can*.
-- Final score = sum of leaf contributions (a reduction).
+---
 
-## 6. Why it can win (and when it can't)
-- **Wins when:** batch-1 / low-latency serving, deep-ish ensembles, working set on-chip → the
-  bottleneck is *branch divergence + ILP*, which EDGE eats. `[verified rationale]`
-- **Does NOT win when:** the working set spills to memory, or the workload is really GEMM/bandwidth
-  bound (i.e. neural nets). Then EDGE's ILP advantage is irrelevant. **The spike (D-008) exists to
-  confirm we're in the winning regime before we build.** `[verified]`
+## 2. Arm C — near-memory / Processing-In-Memory (PIM)
 
-## 7. Phased build plan (each phase ships something measurable)
-- **Phase 0 — Contract + pre-registered claim (days).** Freeze the ISA (§3) and the *one* metric +
-  baseline you'll report, *before* building. Kills the "fuzzy result" failure mode.
-- **Phase 1 — Substrate + hand-written blocks (weeks). ← early win, no compiler.** Cycle-accurate
-  model of a small ALU grid + operand network + block sequencer. **Hand-write** EDGE blocks for a
-  small tree traversal; show sustained instructions/cycle > an equal-resource scalar RISC-V baseline.
-  If no ILP gain here, stop — cheaply.
-- **Phase 2 — Dynamic extension + minimal compiler (the crux, the novelty).** Implement §4; write a
-  compiler that ingests a **real XGBoost model dump** and emits Grove blocks. Scope the input to
-  "a tree ensemble," *not* a general language.
-- **Phase 3 — End-to-end measurement.** Grove vs scalar RISC-V (and a GPU-sim baseline) on a real
-  ensemble; report the pre-registered claim with effect sizes; make it reproducible with one command.
-- **Phase 4 — RTL flex (stretch).** Lift the hot datapath to Verilog/Verilator for a "synthesizable
-  RTL" credential.
+### 2.1 The bet
+Arm A *measured* that memory-bound kernels are limited by **data movement**, not compute. The only way
+to beat that (rather than tolerate it) is to **move the compute to the data**: put small compute units
+in the memory banks so aggregation happens locally and only the (small) result crosses the off-chip
+link. This is **PIM** (prior art: UPMEM, Samsung HBM-PIM; the Mutlu/Ghose research line). Grove's
+contribution is an **open, minimal, cycle-approximate model + a fair, measured data-movement result**.
 
-## 8. Baseline & measurement (the differentiator)
-- **Baseline:** an *equal-resource* scalar RISC-V model (same #ALUs / issue budget), running the same
-  ensemble. Normalise resources so the comparison is honest (see OQ-4).
-- **Metrics:** sustained functional-unit utilisation / achievable-parallel-ops-per-cycle; batch-1
-  latency; working-set footprint (must fit on-chip); reproducibility.
-- Spend the *majority* of effort here and in the compiler — **not** on the RTL.
+### 2.2 The model (`pim/include/pim/model.hpp`, `src/model.cpp`)
+- Global memory split into **`B` banks**; row/element `i` lives in bank `place(i)` (round-robin default;
+  clustered alternative). Each bank has a tiny PIM compute unit (add / multiply-accumulate / reduce).
+- **One shared off-chip bandwidth cap** (bytes/cycle) limits **both** the GPU baseline and PIM — the
+  fairness spine (you cannot rig the comparison by giving one side more bandwidth).
+- **Minimal PIM ISA (~6 ops):** `pim_load`, `pim_add`, `pim_mac`, `pim_reduce`, `host_collect`, `halt`.
 
-## 9. Parking lot (explicitly out of scope for v1)
-Graphics; deep-learning / LLM training; multi-core scaling; a general-purpose compiler / LLVM
-backend; real FPGA/ASIC; the D-011 AI-bottleneck project.
+### 2.3 The measurement: byte-accounting, not cycles
+The primary metric is **DMR = off-chip link bytes (baseline) ÷ off-chip link bytes (PIM)** — bytes are
+**counted, not modelled** (assumption-free). For each kernel, *all* link traffic is charged to *both*
+machines: input **indices**, **operands/partials**, and **output** (so PIM's win can't hide unaccounted
+traffic).
+- **Headline kernel — embedding-bag sum-pooling** (recsys/DLRM): gather `L` scattered rows from a huge
+  table, sum to one vector. Baseline moves all `L` rows; PIM pre-sums co-banked rows and ships one
+  partial **per distinct bank touched**.
+- **The crux — the banking factor `k(L,B) = B·(1 − (1 − 1/B)^L)`:** the number of distinct banks a bag's
+  `L` rows touch. Naive intuition says PIM sends 1 result (DMR = `L`); banking forces `k` partials, so
+  the honest **DMR ≈ L/k**, far below the naive line.
+
+### 2.4 What it measures (see `pim/docs/` and `pim/out/conclusion.md`)
+Canonical (d=64, L=40, B=16): **DMR = 2.53×** — a *gray-zone* result. The win crosses the 3× bar only
+for high pooling (L≳64) and vanishes (<1.5×) for low pooling (L≲16). Verdict (D-019):
+**CONDITIONAL-GO** — the data-movement win is real but **banking-limited**; it pays off for high-pooling
+recommendation features, not low-pooling ones. The reduction-ratio **crossover** (where PIM stops
+helping) is the deliverable that proves the result is not a tautology.
+
+### 2.5 Deliberately omitted (parking lot)
+A general PIM compiler/language; DRAM-faithful timing (refresh, row buffers); RTL; elaborate energy
+modelling; multi-level (near-cache + near-DRAM) PIM. The result rests only on **countable link bytes**,
+not on timing fidelity.
+
+---
+
+## 3. Shared engineering conventions
+- **The gem5 pattern (D-016):** each arm is a **headless C++ cycle/byte model** (MSVC + CMake + Ninja,
+  `/W4`) with a **Python analysis layer** (numpy + matplotlib) that sweeps and plots. Clean engine/render
+  split; the core is unit-tested and dependency-free.
+- **Honesty tags** on every quantity: `[verified]` / `[believed]` / `[modelled]` / `[modelled-exact]`.
+- **Pre-registration** for any decision that could be gamed: hypotheses, primary metric, and decision
+  rule are fixed *before* data (`spike-prereg.md`, `pim-prereg.md`), and a **NO-GO is a valid outcome**.
+- **Every load-bearing claim is measured and reproducible**, one command per arm.
+
+---
+
+## 4. Status & what could come next
+Both arms are built, measured, and concluded (see `handoff.md`). Optional extensions: firm up the Arm C
+verdict against a real DLRM per-feature pooling distribution vs the crossover `L*`; add tiled matmul or a
+bandwidth-capped model to Arm A; add an SpMV kernel to Arm C's sweep. None are blocking — the A→C arc is
+a complete, honest result.

@@ -27,6 +27,13 @@ So PIM helps **high-pooling** embedding features and barely helps low-pooling on
 non-tautological finding, not a rigged "PIM always wins." The final GO/NO-GO is experimentAS's call
 from `out/decision_inputs.json` against the pre-registered `../pim-prereg.md` §5 rule.
 
+## Learn the theory: `docs/`
+This arm doubles as a **near-memory-computing course**. The [`docs/`](docs/README.md) folder teaches
+the *why/how* behind every mechanism here — the memory wall, PIM, the bank model + fair baseline,
+byte-accounting/DMR, **the banking factor `k`** (the crux), and the crossover/honest-science — each
+chapter tying theory to this code and to a number you can reproduce. Start at
+[`docs/README.md`](docs/README.md).
+
 ## The model (pim-prereg.md §3)
 - Memory in `B` banks; row/element `i` in bank `place(i)`; each bank has a tiny compute unit.
 - One shared off-chip **bandwidth cap** limits *both* machines (the fairness spine).
