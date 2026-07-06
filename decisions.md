@@ -264,6 +264,44 @@ commitments:
 `[believed — experimentAS design]` Resolves the OQ-8 measurement plan. **Next:** coderAS builds to
 `pim-prereg.md`; experimentAS renders GO/NO-GO from the returned `decision_inputs.json`.
 
+**D-019 — Arm C measured: CONDITIONAL-GO (data-movement win is real but banking-limited; scoped to
+high-pooling features).** coderAS built the byte-accounting model to the D-018 spec and ran the full
+sweep (branch `exp/d017-pim`, commit `e33b365`, 8/8 model tests pass); experimentAS verified the
+artifacts (Twyman's-law re-derivations all pass — see `pim/out/conclusion.md` §7) and applied the
+**frozen §5 rule mechanically**: no threshold moved after data. **Outcome = GRAY ZONE → CONDITIONAL-GO,
+calibrated confidence ~0.82.** The full reasoning + rival scorecard + plots are in
+**`pim/out/conclusion.md`** (the CONCLUDE artifact).
+- **The numbers (`[modelled-exact]` bytes):** canonical embedding-bag (`d=64, L=40, B=16, nb=1024`,
+  round-robin, coalesced baseline, all link traffic charged) → **DMR = 2.53×** (`k_empirical=14.84` ≈
+  closed-form 14.79; overhead fraction 0.099). `2.53× ∈ [1.5×,3×)` ⇒ GO-primary (≥3×) fails, NO-GO-primary
+  (<1.5×) not triggered, and the realistic-range sweep-min (**1.20×** at L=8) fails GO-robustness ⇒
+  **squarely the §5 gray zone.**
+- **Binding limiter = the banking factor `k` (R-banking-tax).** `DMR ≈ L/k(L,B)`; at B=16, L=40 nearly
+  all banks are touched (`k=14.84/16`), so PIM ships ~B partials/bag. The B-sweep at L=40 is the smoking
+  gun: DMR = 7.40× (B=4) → 4.34× (B=8) → **2.53× (B=16)** → 1.68× → 1.32× → 1.15× (B=128). Hidden traffic
+  is small (overhead 0.099) and clustered placement does **not** rescue it (2.540× vs 2.529× — random
+  DLRM indices defeat locality). The crossover `L*(B=16)=32` sits just left of the DLRM L=40 point (thin
+  margin); low-pooling features (L=8→1.20×, L=16→1.49×) fall *below* the worth-it line.
+- **Rival scorecard (Platt):** **R-tautology KILLED** (honest DMR ≪ naive `DMR=L` line; real crossover
+  L=1→DMR=1.000 exactly — this retires C1); **R-hidden-traffic KILLED** (charged both sides, overhead
+  0.099, win survives); **R-baseline-strawman KILLED** (baseline = coalesced floor, each row once);
+  **R-banking-tax CONFIRMED** as the honest, un-killed binding limiter. 3 of 4 killed; H1 (≥3× + robust +
+  crossover-outside) not fully supported, H0 (no win / pure tautology) refuted → the nuanced middle.
+- **Decision:** conditional-GO **licenses a use-case-driven, honestly-scoped *data-movement* write-up** —
+  "near-memory sum-pooling gives a substantial off-chip-byte reduction (≥3×, rising to >12×) for
+  **high-pooling embedding features (L ≳ 64 at realistic B=16)**, is fundamentally banking-limited
+  (DMR ≈ L/k, k → B), and crosses below the worth-it line for low-pooling features (L ≲ 16)." It claims
+  **no** silicon speedup and **no** flat win across all features (C2/T1 honored). Energy DMR is
+  e-invariant (=byte DMR) and framed as an upper bound (C3 honored).
+- **The one observation that would change the call (confidence 0.82, not higher):** the **pooling-factor
+  distribution of the target DLRM workload.** If a meaningful mass of features sit right of `L*=32`,
+  conditional-GO strengthens toward unconditional GO; if the mass is low-pooling (L ≲ 16), the useful
+  regime is an implausible corner ⇒ tips to **NO-GO/weak** (§5 NO-GO cond. 2). Cheapest next test: cite
+  published DLRM/MLPerf per-feature pooling shapes and mark their mass vs `L*(B)`.
+`[believed — experimentAS verdict on `[modelled-exact]` data]` Resolves OQ-8. **Branch `exp/d017-pim`
+is NOT merged** — the merge-to-main decision is the owner's/coderAS's, deferred to after this verdict.
+**Next:** owner/coderAS decide merge; if the write-up proceeds, pin the pooling-factor distribution first.
+
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
 |----|----|----|----|----|----|----|----|
@@ -272,7 +310,7 @@ commitments:
 | R6 | AI angle is DL-training (not deliverable by EDGE) | [verified] | — | — | — | Accepted tree-inference framing instead | retired |
 | R7 | GBDT win magnitude is only "meh" | [believed] Med | M | H | no | The cost-model spike (D-008) | **RETIRED → NO-GO (D-014).** Canonical HIGGS ρ=0.84 (<1.5×); overhead-free ceiling only 1.92× (<2×); rival R-A confirmed (predictable branches → branchless N-wide scalar harvests the same parallelism). ML framing dropped; general-purpose EDGE fallback (→ discussAS) |
 | R8 | "Fixed-function FPGA beats you" critique | [believed] | M | M | no | Frame as programmability + open stack (D-010) | open |
-| C1 | Arm C PIM win is a construction tautology (aggregation trivially sends less) | [believed] | H | H | no | Reduction-ratio sweep: show where PIM wins AND fails (crossover) | **pre-registered / awaiting build (D-018).** Sweep over `L` + naive-vs-honest DMR + mandatory crossover `L*`; DMR = `L/k(L,B)` ≪ naive `L`; decision kernel is embedding-bag, not reduction |
-| C2 | Over-scoping the DRAM model (refresh/row-buffers) sinks Arm C | [believed] | M | H | no | Minimal bank + single bandwidth cap only | park the rest (D-017); ONE shared bandwidth cap only, no refresh/row-buffers (D-018 §2.3) |
-| C3 | Arm C win rests entirely on the energy-per-byte assumption | [believed] | M | M | no | Report bytes-moved (assumption-free) as the primary metric | mitigated (D-017); primary = counted bytes (`[modelled-exact]`); energy secondary, `e` swept, framed as upper bound (D-018 §2.4) |
-| C4 | Arm C PIM byte-reduction is marginal even for aggregation → no honest win | [guess] | L | H | no | experimentAS pre-registered measurement admits a NO-GO | **pre-registered / awaiting build (D-018).** GO iff canonical DMR ≥ 3× + robust ≥ 1.5× + honest crossover; explicit NO-GO if < 1.5× once fully counted or regime is a narrow corner |
+| C1 | Arm C PIM win is a construction tautology (aggregation trivially sends less) | [believed] | H | H | no | Reduction-ratio sweep: show where PIM wins AND fails (crossover) | **RESOLVED → KILLED (D-019).** Honest DMR (2.53× canonical) sits far below the naive `DMR=L` line; a real crossover exists (L=1→DMR=1.000 exactly, L*(B=16)=32). The win is bounded by `L/k`, not the definitional `L`. Tautology refuted; C1 retired |
+| C2 | Over-scoping the DRAM model (refresh/row-buffers) sinks Arm C | [believed] | M | H | no | Minimal bank + single bandwidth cap only | **held (D-019).** Model stayed minimal (one shared cap, no refresh/row-buffers); the decision rested only on countable link bytes (`[modelled-exact]`). No over-scope; CONDITIONAL-GO claims no silicon speedup (T1) |
+| C3 | Arm C win rests entirely on the energy-per-byte assumption | [believed] | M | M | no | Report bytes-moved (assumption-free) as the primary metric | **held (D-019).** Primary = counted bytes; energy DMR proved **e-invariant** (=byte DMR, ratio cancels e) across e∈{50,160,640} and framed as an upper bound. Verdict does not depend on the pJ/byte assumption |
+| C4 | Arm C PIM byte-reduction is marginal even for aggregation → no honest win | [guess] | L | H | no | experimentAS pre-registered measurement admits a NO-GO | **RESOLVED → CONDITIONAL-GO (D-019).** Canonical DMR=2.53× (gray zone); win is real but **banking-limited** (R-banking-tax the binding limiter, DMR≈L/k, k→B) and robust only for **high-pooling features (L≳64)**, failing <1.5× for low-pooling (L≲16). Honestly scoped, not a flat win. Calibrated confidence ~0.82; the pooling-factor distribution of the target workload is the observation that would flip it to unconditional-GO or NO-GO/weak. See `pim/out/conclusion.md` |
