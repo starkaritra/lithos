@@ -357,6 +357,11 @@ the same flags as `build_wasm.ps1`, then uploads `simt/web/` as the Pages artifa
   `simt/web/simt.{js,wasm}` stays. Follow-up polish (share-URL, mobile, `../docs/README.md` link 404s on
   Pages) tracked in handoff §3a. `[verified — workflow flags mirror the smoke-passing local build]` —
   User input: chose *"GitHub Actions build … binaries stay out of git"*.
+  - **Build-flag fix (browser):** the WASM is built with a **fixed heap** (`-sINITIAL_MEMORY=64MB`, no
+    `ALLOW_MEMORY_GROWTH`). With growth on, the browser backs WASM memory with a *resizable*
+    ArrayBuffer, and `TextDecoder` refuses to decode a view of it — so `run_kernel`'s returned JSON
+    string threw *"TextDecoder … must not be resizable"* in-browser (Node never enforces this, so the
+    smoke test missed it). A fixed heap is non-resizable → decode works; 64MB is ample (threads ≤ 256).
 
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |

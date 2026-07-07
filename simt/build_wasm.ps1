@@ -13,7 +13,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $here "web") | Out-Null
     -s MODULARIZE=1 -s "EXPORT_NAME=SimtModule" `
     -s "EXPORTED_FUNCTIONS=['_run_kernel','_malloc','_free']" `
     -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap']" `
-    -s ALLOW_MEMORY_GROWTH=1 `
+    -s INITIAL_MEMORY=67108864 `
     -o "$here/web/simt.js"
 
 Write-Output "built web/simt.js + web/simt.wasm"
