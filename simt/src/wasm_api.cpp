@@ -84,6 +84,7 @@ const char* run_kernel(const char* src, int n_threads, int mem_latency,
         << ",\"divergent_branches\":" << s.divergent_branches
         << ",\"n_threads\":" << n_threads
         << ",\"n_warps\":" << n_warps
+        << ",\"segment_words\":" << cfg.segment_words
         << ",\"warp_size\":" << simt::WARP_SIZE << "},\"trace\":[";
     const auto& tr = core.trace();
     for (std::size_t i = 0; i < tr.size(); ++i) {
@@ -97,7 +98,20 @@ const char* run_kernel(const char* src, int n_threads, int mem_latency,
             << ",\"latency\":" << e.latency
             << ",\"txns\":" << e.mem_txns
             << ",\"diverged\":" << (e.diverged ? "true" : "false")
-            << ",\"stall\":" << (e.after_stall ? "true" : "false") << "}";
+            << ",\"stall\":" << (e.after_stall ? "true" : "false")
+            << ",\"rd\":" << e.rd << ",\"ra\":" << e.ra << ",\"rb\":" << e.rb
+            << ",\"imm\":" << e.imm
+            << ",\"writes_rd\":" << (e.writes_rd ? "true" : "false")
+            << ",\"is_mem\":" << (e.is_mem ? "true" : "false")
+            << ",\"is_store\":" << (e.is_store ? "true" : "false");
+        auto emit_arr = [&out](const char* key, const std::vector<std::int32_t>& v) {
+            out << ",\"" << key << "\":[";
+            for (std::size_t j = 0; j < v.size(); ++j) { if (j) out << ","; out << v[j]; }
+            out << "]";
+        };
+        if (!e.lane_addr.empty()) emit_arr("lane_addr", e.lane_addr);
+        if (!e.lane_val.empty()) emit_arr("lane_val", e.lane_val);
+        out << "}";
     }
     out << "]}";
     g_result = out.str();

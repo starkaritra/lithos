@@ -7,6 +7,17 @@
 
 namespace simt {
 
+// Which ops produce a destination-register value (for the data-flow view).
+static bool op_writes_rd(Op op) {
+    switch (op) {
+        case Op::MOV: case Op::TID: case Op::IADD:
+        case Op::IMUL: case Op::SLT: case Op::LD:
+            return true;
+        default:
+            return false;
+    }
+}
+
 Core::Core(std::vector<Instr> program, GlobalMemory& mem, CoreConfig cfg)
     : prog_(std::move(program)), mem_(mem), cfg_(cfg) {}
 
@@ -20,9 +31,11 @@ std::uint64_t Core::memory_access(Warp& w, bool is_store) {
         std::int32_t addr = w.regs[l][in.ra];
         if (is_store) {
             mem_.store(static_cast<std::size_t>(addr), w.regs[l][in.rb]);
+            if (tracing_) last_lane_val_[l] = w.regs[l][in.rb];
         } else {
             w.regs[l][in.rd] = mem_.load(static_cast<std::size_t>(addr));
         }
+        if (tracing_) last_lane_addr_[l] = addr;
         segments.insert(addr / cfg_.segment_words);
     }
     const std::uint64_t txns = segments.empty() ? 0 : segments.size();
@@ -190,12 +203,23 @@ void Core::run(int n_threads) {
                 if (w.active[l]) ev_mask |= (1u << l);
         last_txns_ = 0;
         last_diverged_ = false;
+        if (tracing_) {
+            last_lane_addr_.fill(-1);
+            last_lane_val_.fill(0);
+        }
 
         const std::uint64_t latency = execute(w);
         w.ready_at = cycle + latency;
         stats_.cycles = std::max(stats_.cycles, w.ready_at);
 
         if (tracing_) {
+            const Instr& in = prog_[static_cast<std::size_t>(ev_pc)];
+            // Capture per-lane produced values for register-writing ops (LD's value
+            // is in rd after the load; ST's stored value was captured in memory_access).
+            if (op_writes_rd(in.op))
+                for (int l = 0; l < WARP_SIZE; ++l)
+                    if (ev_mask & (1u << l)) last_lane_val_[l] = w.regs[l][in.rd];
+
             TraceEvent ev;
             ev.cycle = cycle;
             ev.warp_id = w.id;
@@ -206,6 +230,17 @@ void Core::run(int n_threads) {
             ev.mem_txns = last_txns_;
             ev.diverged = last_diverged_;
             ev.after_stall = pending_stall_;
+            ev.rd = in.rd;
+            ev.ra = in.ra;
+            ev.rb = in.rb;
+            ev.imm = in.imm;
+            ev.writes_rd = op_writes_rd(in.op);
+            ev.is_mem = (in.op == Op::LD || in.op == Op::ST);
+            ev.is_store = (in.op == Op::ST);
+            if (ev.is_mem)
+                ev.lane_addr.assign(last_lane_addr_.begin(), last_lane_addr_.end());
+            if (ev.writes_rd || ev.is_store)
+                ev.lane_val.assign(last_lane_val_.begin(), last_lane_val_.end());
             trace_.push_back(std::move(ev));
             pending_stall_ = false;
         }

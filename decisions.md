@@ -363,6 +363,35 @@ the same flags as `build_wasm.ps1`, then uploads `simt/web/` as the Pages artifa
     string threw *"TextDecoder … must not be resizable"* in-browser (Node never enforces this, so the
     smoke test missed it). A fixed heap is non-resizable → decode works; 64MB is ample (threads ≤ 256).
 
+---
+
+**D-023 — Playground visualization upgrade: enrich the trace + a 3-panel view.** The first playground
+(D-020) animated a lane grid and a transaction *count* only. To make the microarchitecture legible
+("memory blocks, data flow"), the trace was **enriched** (the browser still runs the real engine — this
+only records *more* of what happened) and the canvas redesigned into three coupled panels.
+- **Trace schema (contract) additions** in `simt/include/simt/trace.hpp` / emitted by
+  `simt/src/core.cpp` (all guarded by `tracing_`, so the headless path and its cycle counts are
+  **unchanged** — 7 native tests still pass, vector-add still 681 cyc): operand indices `rd/ra/rb/imm`,
+  flags `writes_rd/is_mem/is_store`, and per-lane arrays `lane_addr` (word each active lane touched) and
+  `lane_val` (value each lane produced/stored). `stats.segment_words` is also emitted.
+- **Client-side replay (no engine duplication):** because every writing op emits its per-lane result,
+  the frontend rebuilds the exact per-lane register file by replaying `lane_val→rd` in issue order — so
+  the data-flow panel shows *real* operand values without the engine sending register snapshots.
+- **Three panels** (`simt/web/app.js`, DPI-aware canvas): (A) warps × lanes (lit = active, color = op
+  kind, red outline = diverged); (B) a **memory-block map** — each touched segment drawn as a block of
+  `segment_words` word-cells, with connectors from the issuing warp's lanes to the exact word they hit
+  (many lanes → few blocks = coalesced; fan-out = scattered), adaptive to a compact intensity mode when
+  segments don't fit; (C) a **register data-flow** view (src values → op → destination) for one
+  representative active lane.
+- **Options considered:** *A — pure frontend polish* (prettier, but memory/data-flow stay schematic, not
+  real) vs *B — enrich the engine trace* (faithful; needs a rebuild+redeploy). **Chose B** — matches the
+  project's "the browser runs the real engine" principle (D-020).
+- **Verification:** native tests pass (headless unaffected); `web_smoke.cjs` passes with the new JSON;
+  new `simt/test_viz.cjs` runs the shipped `app.js` in a sandbox with a mock canvas + real traces and
+  drives `draw()` across every issue of every example (36 draws, no runtime errors). In-browser *pixel*
+  QA still pending (the CI sandbox can't launch a browser). `[verified — 3 automated checks; visual QA
+  pending]` — User input: chose *"Full faithful upgrade … enrich the C++ trace … redesign the canvas"*.
+
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
 |----|----|----|----|----|----|----|----|

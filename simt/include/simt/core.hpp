@@ -90,6 +90,9 @@ private:
     int last_txns_ = 0;          // memory transactions of the most recent memory op
     bool last_diverged_ = false; // whether the most recent BRA diverged
     bool pending_stall_ = false; // a clock-jump happened before the next issue
+    // Per-lane capture for the trace's visualization fields (filled only when tracing_).
+    std::array<std::int32_t, WARP_SIZE> last_lane_addr_{};
+    std::array<std::int32_t, WARP_SIZE> last_lane_val_{};
 };
 
 }  // namespace simt

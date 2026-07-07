@@ -55,12 +55,16 @@ built (D-020, `simt/web/`). **PAUSED here (2026-07-06)** — recorded next steps
 ## 3a. Next steps (recorded at pause — 2026-07-06)
 **Nothing is blocking; the A→C arc + playground are complete. Resume any of these:**
 
-*Frontend / playground (D-020) → public launch:*
+*Frontend / playground (D-020, D-023) → public launch:*
 - **Deploy: DONE (D-022)** — GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) rebuilds
   the WASM from source (Emscripten 6.0.2) and publishes `simt/web/` to Pages at
   `https://starkaritra.github.io/lithos/`.
-- **Visual QA** the Canvas animation in a real browser (I verified the data pipeline + serving + JS
-  syntax, not the rendered pixels) — tweak colors/layout if needed.
+- **Visualization upgrade: DONE (D-023)** — enriched trace (per-lane addresses/values + operands) drives
+  a 3-panel view: warps × lanes, a word-level memory-block map with lane→word connectors (coalescing
+  made visual), and a register data-flow panel (real replayed operand values). Automated checks pass
+  (native tests, `web_smoke.cjs`, `test_viz.cjs`).
+- **Visual QA** the redesigned Canvas in a real browser (automated harness verifies no runtime errors +
+  correct data, not the rendered pixels) — tweak colors/layout if needed.
 - **Fix the `../docs/README.md` link** in `simt/web/index.html` — it 404s on Pages (docs not published).
 - **Share-URL** that encodes the kernel in the link (for HN/Reddit sharing).
 - **Polish:** mobile layout, a real code editor (CodeMirror), more example kernels, a

@@ -44,14 +44,17 @@
       </div>
       <div id="cyclereadout" class="cycle">cycle —</div>
     </div>
-    <canvas id="canvas" width="720" height="420"></canvas>
+    <canvas id="canvas" width="760" height="620"></canvas>
     <div class="legend">
       <span><i class="sw alu"></i> ALU</span>
       <span><i class="sw mem"></i> memory</span>
       <span><i class="sw branch"></i> branch</span>
       <span><i class="sw idle"></i> idle lane</span>
       <span><i class="sw diverge"></i> divergence</span>
-      <span class="hint">lit lane = active in this issue · memory strip = transactions (fewer = coalesced)</span>
+      <span class="hint"><b>warps × lanes:</b> lit cell = lane active this issue.
+      <b>memory:</b> each block is a segment of words; lines run from lanes to the word they touch —
+      many lanes → few blocks = coalesced, fan-out = scattered.
+      <b>data flow:</b> real operand values flow through the op into the destination register.</span>
     </div>
   </section>
 </main>
