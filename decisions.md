@@ -337,6 +337,27 @@ availability checked: GitHub org `lithos` taken by an inactive user, repo lives 
 account; npm `lithos` taken but the project isn't an npm package]` — User input: chose *"Lithos is
 nice"* from the silica-family shortlist.
 
+---
+
+**D-022 — Deploy the playground via GitHub Actions (CI build), not committed binaries (resolves the
+D-020 deferred deploy decision).** The playground (`simt/web/`) is published to **GitHub Pages** by a
+CI workflow (`.github/workflows/deploy-pages.yml`) that installs Emscripten (pinned **6.0.2**, matching
+the locally tested toolchain), rebuilds `simt/web/simt.{js,wasm}` from the real `simt_core` sources with
+the same flags as `build_wasm.ps1`, then uploads `simt/web/` as the Pages artifact and deploys it.
+- **Options considered:**
+  - *A — Commit built `simt.{js,wasm}` and serve directly.* Pros: simplest; serves the exact tested
+    bits. Cons: commits **derived binaries**, violating the repo convention ("derived artifacts — never
+    committed", see `.gitignore` + handoff §4); binaries drift from source silently; bloats history.
+  - *B — CI build (chosen).* Pros: keeps binaries out of git (convention-aligned); reproducible from
+    source; $0 on a public repo; single source of truth = the C++ engine. Cons: slower iteration; a
+    CI-only failure surface (Emscripten setup / Linux paths) not exercised locally.
+- **Decision:** Option B. Trigger on pushes touching `simt/{src,include,web}` or the workflow, plus
+  `workflow_dispatch`. Pages source set to "GitHub Actions".
+- **Consequences:** Site lives at `https://starkaritra.github.io/lithos/`. The gitignore rule for
+  `simt/web/simt.{js,wasm}` stays. Follow-up polish (share-URL, mobile, `../docs/README.md` link 404s on
+  Pages) tracked in handoff §3a. `[verified — workflow flags mirror the smoke-passing local build]` —
+  User input: chose *"GitHub Actions build … binaries stay out of git"*.
+
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
 |----|----|----|----|----|----|----|----|

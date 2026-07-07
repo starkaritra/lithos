@@ -56,10 +56,12 @@ built (D-020, `simt/web/`). **PAUSED here (2026-07-06)** — recorded next steps
 **Nothing is blocking; the A→C arc + playground are complete. Resume any of these:**
 
 *Frontend / playground (D-020) → public launch:*
+- **Deploy: DONE (D-022)** — GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) rebuilds
+  the WASM from source (Emscripten 6.0.2) and publishes `simt/web/` to Pages at
+  `https://starkaritra.github.io/lithos/`.
 - **Visual QA** the Canvas animation in a real browser (I verified the data pipeline + serving + JS
   syntax, not the rendered pixels) — tweak colors/layout if needed.
-- **Deploy to GitHub Pages** — decide: commit the built `simt/web/simt.{js,wasm}` (simple) vs a CI
-  build step (GitHub Actions runs `build_wasm.ps1`/emcc). Currently those artifacts are gitignored.
+- **Fix the `../docs/README.md` link** in `simt/web/index.html` — it 404s on Pages (docs not published).
 - **Share-URL** that encodes the kernel in the link (for HN/Reddit sharing).
 - **Polish:** mobile layout, a real code editor (CodeMirror), more example kernels, a
   "what am I looking at?" explainer panel; optional companion **PIM-crossover explorable** page.
