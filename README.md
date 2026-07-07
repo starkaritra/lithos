@@ -11,6 +11,10 @@ Lithos is a solo, months-scale project whose real product is **understanding**: 
 real architectural question rather than assert it. Everything here is honest and reproducible —
 including a headline idea that was **tested and killed** before it wasted months.
 
+> ### ▶ [**Try the mini-GPU in your browser → lithos-c0w.pages.dev**](https://lithos-c0w.pages.dev/)
+> Write a kernel, run it on the real cycle-accurate engine (compiled to WebAssembly), and *watch*
+> warps issue, memory coalesce, and branches diverge. Runs entirely client-side, $0 to host.
+
 ---
 
 ## The journey (read this first — the repo is a story)

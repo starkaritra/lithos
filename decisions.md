@@ -411,11 +411,12 @@ simt/web --project-name=lithos`. A prior idempotent step creates the Pages proje
   setup), then only the static output is handed to Cloudflare. Avoids C's fragile toolchain-in-Cloudflare.
 - **Requires (one-time, owner):** repo secrets **`CLOUDFLARE_API_TOKEN`** (scope: Account → Cloudflare
   Pages → Edit) and **`CLOUDFLARE_ACCOUNT_ID`**. No secrets in the repo.
-- **Consequences:** site at `https://lithos.pages.dev` (Cloudflare CDN, free, custom-domain-capable). The
+- **Consequences:** site at `https://lithos-c0w.pages.dev/` (Cloudflare CDN, free, custom-domain-capable). The
   old GitHub Pages workflow is removed to avoid duplicate/failing runs; re-add if a fallback is wanted.
-  `[believed — workflow authored to Cloudflare's documented wrangler-action; end-to-end run pending the
-  owner adding the two secrets + first push]` — User input: chose *"GitHub Actions auto-deploy on push …
-  Cloudflare"*.
+  `[verified — deployed and live at https://lithos-c0w.pages.dev/ after a CI fix: wrangler-action@v3
+  failed to export the token, so the deploy runs `npx wrangler pages deploy` directly with the token in
+  `env:`, plus an early guard for missing secrets]` — User input: chose *"GitHub Actions auto-deploy on
+  push … Cloudflare"* and confirmed *"working well"*.
 
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
