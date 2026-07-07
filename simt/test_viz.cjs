@@ -16,13 +16,22 @@ const EXAMPLES = {
 
 function mockCtx() {
   const noop = () => {};
+  const grad = { addColorStop: noop };
   return new Proxy({
     measureText: (t) => ({ width: String(t).length * 7 }),
+    createLinearGradient: () => grad, createRadialGradient: () => grad,
     setTransform: noop, clearRect: noop, fillRect: noop, strokeRect: noop,
     beginPath: noop, moveTo: noop, lineTo: noop, arcTo: noop, arc: noop,
+    bezierCurveTo: noop, quadraticCurveTo: noop, setLineDash: noop,
     closePath: noop, fill: noop, stroke: noop, fillText: noop, save: noop, restore: noop,
     fillStyle: "", strokeStyle: "", lineWidth: 1, font: "", textAlign: "", textBaseline: "",
+    shadowColor: "", shadowBlur: 0, lineDashOffset: 0,
   }, { get: (o, k) => (k in o ? o[k] : noop), set: (o, k, v) => (o[k] = v, true) });
+}
+function elStub() {
+  return { value: "", textContent: "", innerHTML: "", onclick: null,
+    dataset: {}, style: {}, classList: { toggle: () => {}, add: () => {}, remove: () => {} },
+    appendChild: () => {}, addEventListener: () => {}, querySelectorAll: () => [] };
 }
 
 SimtModule().then((M) => {
@@ -37,18 +46,19 @@ SimtModule().then((M) => {
 
     // build a sandbox that runs the shipped app.js with mocks + this precomputed trace
     const ctx = mockCtx();
-    const editor = { value: src };
-    const stub = () => ({ value: "", textContent: "", innerHTML: "", onclick: null,
-      appendChild: () => {}, style: {} });
+    const editor = elStub(); editor.value = src;
+    const stub = elStub;
     const els = { editor, canvas: { getContext: () => ctx, clientWidth: 760, width: 0, height: 0, style: {} },
       threads: { value: String(threads) }, latency: { value: "200" }, segwords: { value: "8" },
       error: stub(), stats: stub(), examples: stub(), play: stub(), step: stub(),
       reset: stub(), run: stub(), speed: { value: "12" }, cyclereadout: stub() };
     const sandbox = {
       window: { devicePixelRatio: 1, addEventListener: () => {} },
-      document: { getElementById: (id) => els[id] || stub(), createElement: () => stub() },
+      document: { getElementById: (id) => els[id] || stub(), createElement: () => stub(),
+        querySelectorAll: () => [] },
       SimtModule: () => Promise.resolve({ cwrap: () => run }),
       requestAnimationFrame: () => 0, cancelAnimationFrame: () => {},
+      performance: { now: () => 0 }, Date,
       parseInt, Int32Array, Set, Math, JSON, Array, console, isNaN, String, Number,
     };
     sandbox.globalThis = sandbox;

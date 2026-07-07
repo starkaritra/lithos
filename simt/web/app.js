@@ -1,8 +1,9 @@
-// lithos mini-GPU playground — loads the real WASM engine, runs kernels, and animates
-// the enriched trace across three panels: (A) warps × lanes, (B) a word-level memory-block
-// map that makes coalescing visible, and (C) a register-level data-flow view. The register
-// and memory state shown are REPLAYED on the client from the engine's per-issue trace
-// (every writing op emits its per-lane result), so nothing here re-implements the engine.
+// lithos mini-GPU playground — loads the real WASM engine, runs kernels, and animates the
+// enriched trace across three panels: (A) warps × lanes, (B) a word-level memory-block map
+// that makes coalescing visible, and (C) a register-level data-flow view. Register/memory
+// state shown is REPLAYED on the client from the engine's per-issue trace (every writing op
+// emits its per-lane result), so nothing here re-implements the engine. A continuous render
+// loop adds eased transitions, glow, and animated data-flow connectors.
 "use strict";
 
 const EXAMPLES = {
@@ -52,17 +53,20 @@ ld  r2, r0
 halt`,
 };
 
-// ---- palette (mirrors style.css) --------------------------------------------
+// ---- palette ----------------------------------------------------------------
 const C = {
-  bg: "#0d1117", panel: "#161b22", panel2: "#0e131a", border: "#30363d",
-  fg: "#c9d1d9", muted: "#8b949e", faint: "#6e7681", accent: "#58a6ff",
-  alu: "#388bfd", mem: "#f0883e", branch: "#a371f7", idle: "#21262d",
-  diverge: "#f85149", ok: "#3fb950", warn: "#f0883e",
+  bg: "#0b0f16", panel: "#161b22", panel2: "#0e1420", grid: "#141b26",
+  border: "#2a3340", fg: "#e6edf3", muted: "#8b949e", faint: "#5b6675",
+  accent: "#58a6ff", alu: "#4c8dff", aluHi: "#8fbaff", mem: "#f0883e",
+  memHi: "#ffb27a", branch: "#a371f7", branchHi: "#c9a9ff", idle: "#1b222c",
+  diverge: "#f85149", ok: "#3fb950", okHi: "#7ee2a0",
 };
 const OP_KIND = { ld: "mem", st: "mem", bra: "branch", jmp: "branch" };
 const kindOf = (op) => OP_KIND[op] || "alu";
-const KIND_COLOR = { alu: C.alu, mem: C.mem, branch: C.branch };
-// Which register slots each op reads/produces (data-flow arrows). Matches the ISA.
+const KIND = {
+  alu: { base: C.alu, hi: C.aluHi }, mem: { base: C.mem, hi: C.memHi },
+  branch: { base: C.branch, hi: C.branchHi },
+};
 const OP_SEM = {
   mov: { src: ["imm"], dst: true, sym: "=" },
   tid: { src: ["tid"], dst: true, sym: "=" },
@@ -77,12 +81,15 @@ const OP_SEM = {
 };
 
 let runKernel = null;
-let anim = { trace: [], step: 0, playing: false, raf: null, acc: 0, stats: null };
+let anim = {
+  trace: [], step: 0, playing: false, acc: 0, stats: null,
+  stepAt: 0, raf: null, pcLine: [],
+};
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("canvas");
 const ctx = canvas.getContext("2d");
-let CW = 760, CH = 620;               // logical drawing size (CSS px)
+let CW = 760, CH = 620;
 
 // ---- boot -------------------------------------------------------------------
 SimtModule().then((M) => {
@@ -90,31 +97,41 @@ SimtModule().then((M) => {
     ["string", "number", "number", "number", "number"]);
   buildExamples();
   $("editor").value = EXAMPLES["vector-add"];
+  $("editor").addEventListener("input", () => setActiveExample(null));
   resizeCanvas();
   run();
+  startRenderLoop();
 });
-window.addEventListener("resize", () => { resizeCanvas(); draw(); });
+window.addEventListener("resize", () => { resizeCanvas(); });
 
+let activeExample = "vector-add";
+function setActiveExample(name) {
+  activeExample = name;
+  for (const b of document.querySelectorAll(".examples button"))
+    b.classList.toggle("active", b.dataset.name === name);
+}
 function buildExamples() {
   const box = $("examples");
   for (const name of Object.keys(EXAMPLES)) {
     const b = document.createElement("button");
     b.textContent = name;
+    b.dataset.name = name;
     b.onclick = () => {
       $("editor").value = EXAMPLES[name];
       if (name === "latency-hiding") $("threads").value = 64;
+      setActiveExample(name);
       run();
     };
     box.appendChild(b);
   }
+  setActiveExample("vector-add");
 }
 
-// crisp rendering on HiDPI: back the canvas with devicePixelRatio, draw in CSS px.
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   CW = Math.max(360, canvas.clientWidth || 760);
   const nWarps = anim.stats ? anim.stats.n_warps : 1;
-  CH = 300 + Math.max(0, nWarps - 1) * 26;   // grow a little with more warps
+  CH = 320 + Math.max(0, nWarps - 1) * 28;
   canvas.width = Math.round(CW * dpr);
   canvas.height = Math.round(CH * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -139,10 +156,28 @@ function run() {
   anim.trace = data.trace;
   anim.stats = data.stats;
   anim.step = 0;
-  stopPlay();
+  anim.pcLine = mapPcToLine(src);
   resizeCanvas();
   renderStats(data.stats);
-  startPlay();
+  setStep(0);
+  anim.playing = true;
+  $("play").textContent = "⏸ pause";
+}
+
+// map each instruction index (pc) to its 0-based source line (mirrors the assembler:
+// skip blank lines, comment-only lines, and lone "label:" lines).
+function mapPcToLine(src) {
+  const out = [];
+  const lines = src.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    let s = lines[i];
+    const h = s.search(/[#;]/); if (h >= 0) s = s.slice(0, h);
+    s = s.trim();
+    if (!s) continue;
+    if (/^\S+:$/.test(s)) continue;   // label-only
+    out.push(i);
+  }
+  return out;
 }
 
 function renderStats(s) {
@@ -156,57 +191,56 @@ function renderStats(s) {
   box.innerHTML = items.map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
 }
 
-// ---- replay: reconstruct per-lane registers up to the current issue ----------
-// The engine emits, for every writing op, the value each active lane produced. Applying
-// those in order rebuilds the exact register file — so we can show real operand values.
+// ---- replay -----------------------------------------------------------------
 function regfileBefore(step) {
   const s = anim.stats;
   const NR = 16, WS = s.warp_size, nW = s.n_warps;
-  // regs[warp][lane][reg]
   const regs = Array.from({ length: nW }, () =>
     Array.from({ length: WS }, () => new Int32Array(NR)));
   for (let i = 0; i < step - 1 && i < anim.trace.length; i++) {
     const e = anim.trace[i];
-    if (e.writes_rd && e.lane_val && e.rd >= 0) {
+    if (e.writes_rd && e.lane_val && e.rd >= 0)
       for (let l = 0; l < WS; l++)
         if (e.mask & (1 << l)) regs[e.warp][l][e.rd] = e.lane_val[l];
-    }
   }
   return regs;
 }
-function firstActiveLane(mask, WS) {
-  for (let l = 0; l < WS; l++) if (mask & (1 << l)) return l;
-  return -1;
-}
+const firstActiveLane = (mask, WS) => { for (let l = 0; l < WS; l++) if (mask & (1 << l)) return l; return -1; };
 
-// ---- animation --------------------------------------------------------------
-function startPlay() { anim.playing = true; $("play").textContent = "⏸ pause"; lastT = 0; loop(); }
-function stopPlay() {
-  anim.playing = false; $("play").textContent = "▶ play";
-  if (anim.raf) cancelAnimationFrame(anim.raf);
+// ---- animation clock --------------------------------------------------------
+function now() { return (typeof performance !== "undefined" ? performance.now() : Date.now()); }
+function setStep(n) { anim.step = n; anim.stepAt = now(); }
+const easeOut = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+
+function startRenderLoop() {
+  if (anim.raf) return;
+  const tick = (t) => { renderFrame(t); anim.raf = requestAnimationFrame(tick); };
+  anim.raf = requestAnimationFrame(tick);
 }
-$("play").onclick = () => { if (anim.playing) stopPlay(); else { if (anim.step >= anim.trace.length) anim.step = 0; startPlay(); } };
-$("step").onclick = () => { stopPlay(); if (anim.step < anim.trace.length) anim.step++; draw(); };
-$("reset").onclick = () => { stopPlay(); anim.step = 0; draw(); };
+let lastT = 0;
+function renderFrame(t) {
+  t = t || now();
+  if (anim.playing && anim.trace.length) {
+    const eps = parseInt($("speed").value, 10) || 12;
+    if (!lastT) lastT = t;
+    anim.acc += ((t - lastT) / 1000) * eps;
+    lastT = t;
+    while (anim.acc >= 1 && anim.step < anim.trace.length) { setStep(anim.step + 1); anim.acc -= 1; }
+    if (anim.step >= anim.trace.length) { anim.playing = false; $("play").textContent = "▶ play"; anim.acc = 0; }
+  } else { lastT = t; }
+  draw(t);
+}
+$("play").onclick = () => {
+  if (anim.playing) { anim.playing = false; $("play").textContent = "▶ play"; }
+  else { if (anim.step >= anim.trace.length) setStep(0); anim.playing = true; lastT = 0; $("play").textContent = "⏸ pause"; }
+};
+$("step").onclick = () => { anim.playing = false; $("play").textContent = "▶ play"; if (anim.step < anim.trace.length) setStep(anim.step + 1); };
+$("reset").onclick = () => { anim.playing = false; $("play").textContent = "▶ play"; setStep(0); };
 $("run").onclick = run;
 
-let lastT = 0;
-function loop(t) {
-  if (!anim.playing) return;
-  const eps = parseInt($("speed").value, 10);
-  if (!lastT) lastT = t || 0;
-  const dt = ((t || 0) - lastT) / 1000;
-  lastT = t || 0;
-  anim.acc += dt * eps;
-  while (anim.acc >= 1 && anim.step < anim.trace.length) { anim.step++; anim.acc -= 1; }
-  draw();
-  if (anim.step >= anim.trace.length) { stopPlay(); anim.acc = 0; lastT = 0; return; }
-  anim.raf = requestAnimationFrame(loop);
-}
-
-// ---- drawing helpers --------------------------------------------------------
+// ---- drawing primitives -----------------------------------------------------
 function rr(x, y, w, h, r) {
-  r = Math.min(r, w / 2, h / 2);
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -215,69 +249,86 @@ function rr(x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
+function vgrad(x, y, h, top, bot) { const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, top); g.addColorStop(1, bot); return g; }
+function glow(color, blur, fn) { ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = blur; fn(); ctx.restore(); }
 function panelTitle(text, x, y) {
+  ctx.fillStyle = C.accent; rr(x, y - 8, 3, 10, 1.5); ctx.fill();
   ctx.fillStyle = C.muted; ctx.font = "600 11px ui-monospace, Consolas, monospace";
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
-  ctx.fillText(text.toUpperCase(), x, y);
+  ctx.fillText(text.toUpperCase(), x + 9, y);
+}
+function bgGrid() {
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, CW, CH);
+  ctx.fillStyle = C.grid;
+  for (let gx = 12; gx < CW; gx += 26)
+    for (let gy = 12; gy < CH; gy += 26) { ctx.beginPath(); ctx.arc(gx, gy, 0.7, 0, 7); ctx.fill(); }
 }
 
-// geometry of the lane grid, shared so memory connectors can point at real lanes.
 let laneGeom = null;
 
-function draw() {
-  ctx.clearRect(0, 0, CW, CH);
+function draw(t) {
+  t = t || now();
+  bgGrid();
   const s = anim.stats;
   if (!s) return;
   const cur = anim.step > 0 ? anim.trace[anim.step - 1] : null;
+  const enter = easeOut((t - anim.stepAt) / 200);   // 0→1 reveal since this issue
+  const pulse = 0.5 + 0.5 * Math.sin(t / 420);        // breathing glow
   $("cyclereadout").textContent = cur
     ? `cycle ${cur.cycle}  ·  issue ${anim.step}/${anim.trace.length}`
     : "cycle —";
 
-  const padX = 14;
-  let y = 22;
-  y = drawWarps(padX, y, s, cur);
-  y += 14;
-  y = drawMemory(padX, y, s, cur);
-  y += 14;
-  drawDataflow(padX, y, s, cur);
+  const padX = 16;
+  let y = 24;
+  y = drawWarps(padX, y, s, cur, enter, pulse);
+  y += 16;
+  y = drawMemory(padX, y, s, cur, enter, pulse, t);
+  y += 16;
+  drawDataflow(padX, y, s, cur, enter, pulse);
   drawProgress();
 }
 
 // Panel A — warps × lanes ------------------------------------------------------
-function drawWarps(x0, y0, s, cur) {
-  panelTitle("warps × lanes  (lit = active this issue · color = op kind)", x0, y0);
-  let y = y0 + 8;
+function drawWarps(x0, y0, s, cur, enter, pulse) {
+  panelTitle("warps × lanes  ·  lit = active this issue · color = op kind", x0, y0);
+  let y = y0 + 10;
   const WS = s.warp_size, nW = s.n_warps;
   const labelW = 52;
   const gridW = CW - x0 * 2 - labelW;
   const cell = Math.max(8, Math.min(20, Math.floor(gridW / WS) - 2));
-  const gap = 2, rowH = cell + 8;
+  const gap = 2, rowH = cell + 9;
   laneGeom = { x0: x0 + labelW, y, cell, gap, rowH, WS };
 
   for (let w = 0; w < nW; w++) {
     const ry = y + w * rowH;
     const issuing = cur && cur.warp === w;
     if (issuing) {
-      ctx.fillStyle = "rgba(88,166,255,0.06)";
-      rr(x0, ry - 3, CW - x0 * 2, cell + 6, 5); ctx.fill();
+      ctx.fillStyle = "rgba(88,166,255," + (0.10 * enter).toFixed(3) + ")";
+      rr(x0 - 2, ry - 4, CW - x0 * 2 + 4, cell + 8, 6); ctx.fill();
     }
     ctx.fillStyle = issuing ? C.accent : C.muted;
-    ctx.font = "11px ui-monospace, Consolas, monospace";
+    ctx.font = (issuing ? "bold " : "") + "11px ui-monospace, Consolas, monospace";
     ctx.textBaseline = "middle"; ctx.textAlign = "left";
     ctx.fillText("warp " + w, x0, ry + cell / 2);
     for (let l = 0; l < WS; l++) {
       const cx = laneGeom.x0 + l * (cell + gap);
-      let fill = C.idle, stroke = null;
-      if (issuing && (cur.mask & (1 << l))) {
-        fill = KIND_COLOR[kindOf(cur.op)];
-        if (cur.diverged) stroke = C.diverge;
+      const active = issuing && (cur.mask & (1 << l));
+      if (active) {
+        const k = KIND[kindOf(cur.op)];
+        const sc = 0.82 + 0.18 * enter;
+        const inset = (cell * (1 - sc)) / 2;
+        glow(k.base, 8 * enter * (0.7 + 0.3 * pulse), () => {
+          ctx.fillStyle = vgrad(cx, ry, cell, k.hi, k.base);
+          rr(cx + inset, ry + inset, cell * sc, cell * sc, 3); ctx.fill();
+        });
+        if (cur.diverged) { ctx.strokeStyle = C.diverge; ctx.lineWidth = 1.5; ctx.stroke(); }
+      } else {
+        ctx.fillStyle = C.idle; rr(cx, ry, cell, cell, 3); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1; ctx.stroke();
       }
-      ctx.fillStyle = fill; rr(cx, ry, cell, cell, 3); ctx.fill();
-      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
     }
     if (issuing && cur.diverged) {
-      ctx.fillStyle = C.diverge; ctx.font = "bold 11px ui-monospace, monospace";
-      ctx.textAlign = "left";
+      ctx.fillStyle = C.diverge; ctx.font = "bold 11px ui-monospace, monospace"; ctx.textAlign = "left";
       ctx.fillText("⚡ diverged", laneGeom.x0 + WS * (cell + gap) + 6, ry + cell / 2);
     }
   }
@@ -285,161 +336,146 @@ function drawWarps(x0, y0, s, cur) {
 }
 
 // Panel B — memory-block map ---------------------------------------------------
-// Draws the memory segments touched by the CURRENT memory op as blocks of `segment_words`
-// word-cells; lit cells are the words active lanes address; connectors run from the issuing
-// warp's lanes to the word they hit. Many lanes → one block = coalesced; fan-out = scattered.
-function drawMemory(x0, y0, s, cur) {
+function drawMemory(x0, y0, s, cur, enter, pulse, t) {
   const segW = s.segment_words;
   const isMem = cur && cur.is_mem && cur.lane_addr;
+  const quality = isMem ? (cur.txns <= 4 ? "coalesced" : cur.txns >= s.warp_size / 2 ? "scattered" : "partly coalesced") : "";
   panelTitle(
-    isMem ? `global memory  —  ${cur.op.toUpperCase()} : ${cur.txns} transaction${cur.txns === 1 ? "" : "s"} (${cur.txns <= 4 ? "coalesced" : cur.txns >= s.warp_size / 2 ? "scattered" : "partly coalesced"})`
-          : "global memory  —  (no memory traffic this instruction)",
+    isMem ? `global memory  ·  ${cur.op.toUpperCase()} — ${cur.txns} transaction${cur.txns === 1 ? "" : "s"} (${quality})`
+          : "global memory  ·  no memory traffic this instruction",
     x0, y0);
-  const top = y0 + 10;
-  const boxH = 46;
-  ctx.fillStyle = C.panel2; rr(x0, top, CW - x0 * 2, boxH, 6); ctx.fill();
+  const top = y0 + 12, boxH = 52;
+  ctx.fillStyle = vgrad(x0, top, boxH, C.panel2, C.bg);
+  rr(x0, top, CW - x0 * 2, boxH, 8); ctx.fill();
   ctx.strokeStyle = C.border; ctx.lineWidth = 1; ctx.stroke();
 
   if (!isMem) {
     ctx.fillStyle = C.faint; ctx.font = "12px ui-monospace, monospace";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("memory is idle — this is an ALU/branch instruction", CW / 2, top + boxH / 2);
+    ctx.fillText("memory is idle — this is an ALU / branch instruction", CW / 2, top + boxH / 2);
     return top + boxH;
   }
 
-  // lanes → their addresses (active only), grouped into segments.
   const WS = s.warp_size;
-  const laneAddr = [];  // {lane, addr}
+  const laneAddr = [];
   for (let l = 0; l < WS; l++)
     if ((cur.mask & (1 << l)) && cur.lane_addr[l] >= 0)
       laneAddr.push({ lane: l, addr: cur.lane_addr[l] });
   const segs = [...new Set(laneAddr.map((a) => Math.floor(a.addr / segW)))].sort((a, b) => a - b);
 
-  const areaX = x0 + 8, areaW = CW - x0 * 2 - 16;
-  const nSeg = segs.length;
-  const blockGap = 8;
-  const blockW = Math.max(10, Math.min(120, (areaW - blockGap * (nSeg - 1)) / nSeg));
-  const showWords = blockW >= segW * 6;      // enough room to draw individual word cells
-  const by = top + 8, bh = boxH - 16;
-  const segX = {};                            // segment index -> center x of its block
+  const areaX = x0 + 10, areaW = CW - x0 * 2 - 20;
+  const nSeg = segs.length, blockGap = 8;
+  const blockW = Math.max(9, Math.min(130, (areaW - blockGap * (nSeg - 1)) / nSeg));
+  const showWords = blockW >= segW * 7;
+  const by = top + 9, bh = boxH - 26;
+  const segX = {};
 
   for (let i = 0; i < nSeg; i++) {
     const bx = areaX + i * (blockW + blockGap);
     segX[segs[i]] = bx + blockW / 2;
     ctx.fillStyle = C.idle; rr(bx, by, blockW, bh, 4); ctx.fill();
-    ctx.strokeStyle = C.border; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = "rgba(240,136,62,0.25)"; ctx.lineWidth = 1; ctx.stroke();
     if (showWords) {
       const wCellW = (blockW - 6) / segW;
       for (let wi = 0; wi < segW; wi++) {
-        const wx = bx + 3 + wi * wCellW;
-        const addr = segs[i] * segW + wi;
+        const wx = bx + 3 + wi * wCellW, addr = segs[i] * segW + wi;
         const hit = laneAddr.some((a) => a.addr === addr);
-        ctx.fillStyle = hit ? C.mem : "#1b2129";
-        rr(wx + 0.5, by + 6, wCellW - 1, bh - 20, 2); ctx.fill();
+        if (hit) glow(C.mem, 6 * enter, () => { ctx.fillStyle = vgrad(wx, by + 5, bh - 18, C.memHi, C.mem); rr(wx + 0.5, by + 5, wCellW - 1, bh - 18, 2); ctx.fill(); });
+        else { ctx.fillStyle = "#161d27"; rr(wx + 0.5, by + 5, wCellW - 1, bh - 18, 2); ctx.fill(); }
       }
     } else {
-      // compact: fill intensity by how many lanes hit this segment
       const n = laneAddr.filter((a) => Math.floor(a.addr / segW) === segs[i]).length;
-      const alpha = Math.min(1, 0.25 + n / WS);
-      ctx.fillStyle = `rgba(240,136,62,${alpha})`;
-      rr(bx + 2, by + 2, blockW - 4, bh - 16, 3); ctx.fill();
+      const a = Math.min(1, 0.3 + n / WS) * (0.6 + 0.4 * enter);
+      ctx.fillStyle = `rgba(240,136,62,${a.toFixed(3)})`;
+      rr(bx + 2, by + 2, blockW - 4, bh - 4, 3); ctx.fill();
     }
     ctx.fillStyle = C.faint; ctx.font = "9px ui-monospace, monospace";
-    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-    ctx.fillText("seg " + segs[i], bx + blockW / 2, by + bh);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText("seg " + segs[i], bx + blockW / 2, by + bh + 3);
   }
 
-  // connectors: issuing lane cell (panel A) → its word/segment block
+  // curved, animated connectors: issuing lane → the word/segment it touches
   if (laneGeom && laneGeom.WS === WS) {
     const lg = laneGeom;
-    const laneRowY = lg.y + cur.warp * lg.rowH + lg.cell;   // bottom of the issuing lane row
-    ctx.lineWidth = 1;
+    const laneRowY = lg.y + cur.warp * lg.rowH + lg.cell;
+    ctx.lineWidth = 1.6; ctx.setLineDash([5, 4]); ctx.lineDashOffset = -(t / 40) % 9;
     for (const a of laneAddr) {
       const lx = lg.x0 + a.lane * (lg.cell + lg.gap) + lg.cell / 2;
       let tx = segX[Math.floor(a.addr / segW)];
-      if (showWords) {
-        const wCellW = (blockW - 6) / segW;
-        const bx = tx - blockW / 2;
-        tx = bx + 3 + (a.addr % segW) * wCellW + wCellW / 2;
-      }
-      ctx.strokeStyle = "rgba(240,136,62,0.35)";
-      ctx.beginPath(); ctx.moveTo(lx, laneRowY + 2); ctx.lineTo(tx, by); ctx.stroke();
+      if (showWords) { const wCellW = (blockW - 6) / segW; tx = tx - blockW / 2 + 3 + (a.addr % segW) * wCellW + wCellW / 2; }
+      const g = ctx.createLinearGradient(lx, laneRowY, tx, by);
+      g.addColorStop(0, "rgba(240,136,62,0.30)"); g.addColorStop(1, "rgba(255,178,122," + (0.55 + 0.35 * enter).toFixed(3) + ")");
+      ctx.strokeStyle = g;
+      const my = (laneRowY + by) / 2;
+      ctx.beginPath(); ctx.moveTo(lx, laneRowY + 2);
+      ctx.bezierCurveTo(lx, my, tx, my, tx, by); ctx.stroke();
     }
+    ctx.setLineDash([]);
   }
   return top + boxH;
 }
 
 // Panel C — register data-flow -------------------------------------------------
-// Shows the current instruction as a data-flow for one representative active lane:
-// source values flow through the op into the destination register. Values are the REAL
-// per-lane values replayed from the trace.
-function drawDataflow(x0, y0, s, cur) {
-  panelTitle("data flow  (one representative lane)", x0, y0);
-  const top = y0 + 10, boxH = 92;
-  ctx.fillStyle = C.panel2; rr(x0, top, CW - x0 * 2, boxH, 6); ctx.fill();
+function drawDataflow(x0, y0, s, cur, enter, pulse) {
+  panelTitle("data flow  ·  one representative lane", x0, y0);
+  const top = y0 + 12, boxH = 96;
+  ctx.fillStyle = vgrad(x0, top, boxH, C.panel2, C.bg);
+  rr(x0, top, CW - x0 * 2, boxH, 8); ctx.fill();
   ctx.strokeStyle = C.border; ctx.lineWidth = 1; ctx.stroke();
   if (!cur) return top + boxH;
 
   const WS = s.warp_size;
   const lane = firstActiveLane(cur.mask, WS);
   const sem = OP_SEM[cur.op] || { src: [], dst: false, sym: "" };
+  const kind = kindOf(cur.op), kc = KIND[kind];
   const regs = regfileBefore(anim.step);
   const before = (lane >= 0) ? regs[cur.warp][lane] : new Int32Array(16);
 
-  // header: the assembly + which lane we're showing
+  // op pill + assembly + lane/line info
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  const pill = cur.op.toUpperCase();
+  ctx.font = "bold 11px ui-monospace, monospace";
+  const pw = ctx.measureText(pill).width + 16;
+  ctx.fillStyle = kc.base; rr(x0 + 12, top + 8, pw, 18, 9); ctx.fill();
+  ctx.fillStyle = "#0b0f16"; ctx.fillText(pill, x0 + 20, top + 17);
   ctx.fillStyle = C.fg; ctx.font = "13px ui-monospace, Consolas, monospace";
-  ctx.textAlign = "left"; ctx.textBaseline = "top";
-  const asm = asmText(cur);
-  ctx.fillText(asm, x0 + 12, top + 10);
-  if (lane >= 0) {
-    ctx.fillStyle = C.faint; ctx.font = "11px ui-monospace, monospace";
-    ctx.fillText("lane " + lane + (cur.after_stall ? "   ·   ⏱ issued after a STALL (memory latency)" : ""),
-      x0 + 12, top + 28);
-  }
+  ctx.fillText(asmText(cur), x0 + 20 + pw, top + 17);
+  const srcLine = anim.pcLine[cur.pc];
+  ctx.fillStyle = C.faint; ctx.font = "11px ui-monospace, monospace";
+  ctx.textAlign = "right";
+  ctx.fillText((srcLine != null ? "line " + (srcLine + 1) + "  ·  " : "") + "lane " + lane +
+    (cur.after_stall ? "  ·  ⏱ after a STALL" : ""), CW - x0 - 12, top + 17);
+  ctx.textAlign = "left";
 
-  // build the src → op → dst node chain
-  const cy = top + 62;
+  const cy = top + 52;
+  if (cur.op === "bra") {
+    ctx.fillStyle = C.fg; ctx.font = "13px ui-monospace, monospace"; ctx.textBaseline = "middle";
+    ctx.fillText("if  r" + cur.ra + " ≠ 0  → then-path,  else → else-path", x0 + 16, cy + 12);
+    if (cur.diverged) { ctx.fillStyle = C.diverge; ctx.fillText("⚡ lanes disagreed → warp serializes both paths", x0 + 16, cy + 32); }
+    return top + boxH;
+  }
   const nodes = [];
   for (const src of sem.src) {
     if (src === "imm") nodes.push({ label: "imm", val: cur.imm });
     else if (src === "tid") nodes.push({ label: "tid", val: (lane >= 0 ? cur.lane_val[lane] : 0) });
-    else if (src === "mem") nodes.push({ label: "mem[" + (lane >= 0 && cur.lane_addr ? cur.lane_addr[lane] : "?") + "]", val: (lane >= 0 && cur.lane_val ? cur.lane_val[lane] : 0) });
+    else if (src === "mem") nodes.push({ label: "mem[" + (lane >= 0 && cur.lane_addr ? cur.lane_addr[lane] : "?") + "]", val: (lane >= 0 && cur.lane_val ? cur.lane_val[lane] : 0), mem: true });
     else if (src === "ra") nodes.push({ label: "r" + cur.ra, val: before[cur.ra] });
     else if (src === "rb") nodes.push({ label: "r" + cur.rb, val: before[cur.rb] });
   }
   let dst = null;
   if (sem.dst) dst = { label: "r" + cur.rd, val: (lane >= 0 && cur.lane_val ? cur.lane_val[lane] : 0) };
-  else if (cur.is_store) dst = { label: "mem[" + (lane >= 0 && cur.lane_addr ? cur.lane_addr[lane] : "?") + "]", val: (lane >= 0 && cur.lane_val ? cur.lane_val[lane] : 0) };
+  else if (cur.is_store) dst = { label: "mem[" + (lane >= 0 && cur.lane_addr ? cur.lane_addr[lane] : "?") + "]", val: (lane >= 0 && cur.lane_val ? cur.lane_val[lane] : 0), mem: true };
 
-  // layout nodes left→right: [src0] (sym [src1]) → [dst]
-  const kind = kindOf(cur.op);
-  let x = x0 + 16;
-  const drawNode = (n, accent) => {
-    const w = nodeW(n);
-    drawReg(x, cy, w, n.label, n.val, accent);
-    x += w;
-    return x;
-  };
-  if (cur.op === "bra") {
-    ctx.fillStyle = C.fg; ctx.font = "13px ui-monospace, monospace"; ctx.textBaseline = "middle";
-    ctx.fillText("if r" + cur.ra + " ≠ 0 → then-path, else → else-path", x, cy + 14);
-    if (cur.diverged) { ctx.fillStyle = C.diverge; ctx.fillText("   ⚡ lanes disagreed → warp serializes both paths", x + 320, cy + 14); }
-    return top + boxH;
-  }
   if (nodes.length === 0) {
     ctx.fillStyle = C.faint; ctx.font = "12px ui-monospace, monospace"; ctx.textBaseline = "middle";
-    ctx.fillText(cur.op === "halt" ? "halt — warp finished" : "control flow", x, cy + 14);
+    ctx.fillText(cur.op === "halt" ? "halt — warp finished" : "control flow", x0 + 16, cy + 12);
     return top + boxH;
   }
-  x = drawNode(nodes[0], KIND_COLOR[kind]);
-  for (let i = 1; i < nodes.length; i++) {
-    x = arrowSym(x, cy, sem.sym) ;
-    x = drawNode(nodes[i], KIND_COLOR[kind]);
-  }
-  if (dst) {
-    x = arrowSym(x, cy, "→");
-    drawNode(dst, C.ok);
-  }
+  let x = x0 + 16;
+  const draw1 = (n, col, colHi, flash) => { x = drawReg(x, cy, n, col, colHi, flash, enter, pulse); };
+  draw1(nodes[0], kc.base, kc.hi, false);
+  for (let i = 1; i < nodes.length; i++) { x = arrowSym(x, cy, sem.sym); draw1(nodes[i], kc.base, kc.hi, false); }
+  if (dst) { x = arrowSym(x, cy, "→"); draw1(dst, C.ok, C.okHi, true); }
   return top + boxH;
 }
 
@@ -458,33 +494,35 @@ function asmText(e) {
     default: return e.op;
   }
 }
-function nodeW(n) {
-  const t = n.label + " = " + n.val;
-  ctx.font = "12px ui-monospace, monospace";
-  return Math.max(64, ctx.measureText(t).width + 20);
-}
-function drawReg(x, cy, w, label, val, accent) {
-  const h = 30, y = cy;
-  ctx.fillStyle = C.panel; rr(x, y, w - 12, h, 6); ctx.fill();
-  ctx.strokeStyle = accent || C.border; ctx.lineWidth = 1.5; ctx.stroke();
+function drawReg(x, cy, n, col, colHi, flash, enter, pulse) {
+  const label = n.label, val = String(n.val);
+  ctx.font = "bold 12px ui-monospace, monospace"; const lw = ctx.measureText(label).width;
+  ctx.font = "12px ui-monospace, monospace"; const vw = ctx.measureText("= " + val).width;
+  const w = Math.max(60, lw + vw + 22), h = 32, y = cy;
+  const doFill = () => {
+    ctx.fillStyle = vgrad(x, y, h, C.panel, C.panel2); rr(x, y, w, h, 7); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = flash ? 1.5 + enter : 1.4; ctx.stroke();
+  };
+  if (flash) glow(col, 12 * (1 - enter) + 3 * pulse, doFill); else doFill();
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
-  ctx.fillStyle = accent || C.fg; ctx.font = "bold 12px ui-monospace, monospace";
-  ctx.fillText(label, x + 8, y + h / 2 - 6 + 6);
-  ctx.fillStyle = C.fg; ctx.font = "12px ui-monospace, monospace";
-  const lw = ctx.measureText(label).width;
-  ctx.fillStyle = C.muted; ctx.fillText("= " + val, x + 12 + lw, y + h / 2);
+  ctx.fillStyle = colHi || col; ctx.font = "bold 12px ui-monospace, monospace";
+  ctx.fillText(label, x + 9, y + h / 2);
+  ctx.fillStyle = C.muted; ctx.font = "12px ui-monospace, monospace";
+  ctx.fillText("= " + val, x + 9 + lw + 6, y + h / 2);
+  return x + w + 6;
 }
 function arrowSym(x, cy, sym) {
-  ctx.fillStyle = C.muted; ctx.font = "15px ui-monospace, monospace";
+  ctx.fillStyle = C.faint; ctx.font = "16px ui-monospace, monospace";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(sym || "→", x + 6, cy + 15);
+  ctx.fillText(sym || "→", x + 8, cy + 16);
   ctx.textAlign = "left";
-  return x + 18;
+  return x + 20;
 }
-
 function drawProgress() {
-  const y = CH - 8, x0 = 14, w = CW - 28;
-  ctx.fillStyle = C.idle; rr(x0, y, w, 5, 2); ctx.fill();
+  const y = CH - 9, x0 = 16, w = CW - 32;
+  ctx.fillStyle = C.idle; rr(x0, y, w, 5, 2.5); ctx.fill();
   const frac = anim.trace.length ? anim.step / anim.trace.length : 0;
-  ctx.fillStyle = C.accent; rr(x0, y, w * frac, 5, 2); ctx.fill();
+  const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+  g.addColorStop(0, C.accent); g.addColorStop(1, "#7ee2a0");
+  ctx.fillStyle = g; rr(x0, y, Math.max(0, w * frac), 5, 2.5); ctx.fill();
 }

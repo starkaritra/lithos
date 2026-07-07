@@ -387,10 +387,13 @@ only records *more* of what happened) and the canvas redesigned into three coupl
   real) vs *B — enrich the engine trace* (faithful; needs a rebuild+redeploy). **Chose B** — matches the
   project's "the browser runs the real engine" principle (D-020).
 - **Verification:** native tests pass (headless unaffected); `web_smoke.cjs` passes with the new JSON;
-  new `simt/test_viz.cjs` runs the shipped `app.js` in a sandbox with a mock canvas + real traces and
-  drives `draw()` across every issue of every example (36 draws, no runtime errors). In-browser *pixel*
-  QA still pending (the CI sandbox can't launch a browser). `[verified — 3 automated checks; visual QA
-  pending]` — User input: chose *"Full faithful upgrade … enrich the C++ trace … redesign the canvas"*.
+  `simt/test_viz.cjs` runs the shipped `app.js` in a sandbox with a mock canvas + real traces and
+  drives `draw()` across every issue of every example (36 draws, no runtime errors). A **visual polish
+  pass** followed (eased continuous render loop, glow/gradients, animated lane→word connectors, register
+  value-flash, refined CSS chrome) and was **pixel-verified** via headless-browser screenshots
+  (coalesced = 32 lanes converging into 4 word-filled blocks; scattered = fan-out to 32 blocks). `[verified
+  — automated checks + rendered screenshots]` — User input: chose *"Full faithful upgrade … enrich the
+  C++ trace … redesign the canvas"* and *"can we improve the frontend visuals?"*.
 
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |
