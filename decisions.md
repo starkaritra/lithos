@@ -340,7 +340,8 @@ nice"* from the silica-family shortlist.
 ---
 
 **D-022 — Deploy the playground via GitHub Actions (CI build), not committed binaries (resolves the
-D-020 deferred deploy decision).** The playground (`simt/web/`) is published to **GitHub Pages** by a
+D-020 deferred deploy decision).** *(Host superseded by D-024: Cloudflare Pages replaces GitHub Pages;
+the CI-build-from-source principle below is retained.)* The playground (`simt/web/`) is published by a
 CI workflow (`.github/workflows/deploy-pages.yml`) that installs Emscripten (pinned **6.0.2**, matching
 the locally tested toolchain), rebuilds `simt/web/simt.{js,wasm}` from the real `simt_core` sources with
 the same flags as `build_wasm.ps1`, then uploads `simt/web/` as the Pages artifact and deploys it.
@@ -394,6 +395,27 @@ only records *more* of what happened) and the canvas redesigned into three coupl
   (coalesced = 32 lanes converging into 4 word-filled blocks; scattered = fan-out to 32 blocks). `[verified
   — automated checks + rendered screenshots]` — User input: chose *"Full faithful upgrade … enrich the
   C++ trace … redesign the canvas"* and *"can we improve the frontend visuals?"*.
+
+---
+
+**D-024 — Host on Cloudflare Pages via GitHub Actions (supersedes D-022's host choice).** The playground
+is deployed to **Cloudflare Pages** instead of GitHub Pages, keeping the D-022 principle (CI rebuilds the
+WASM from source; binaries stay out of git). Workflow `.github/workflows/deploy-cloudflare.yml` (replaces
+`deploy-pages.yml`): Emscripten 6.0.2 → `emcc` (same flags as `build_wasm.ps1`) → `wrangler pages deploy
+simt/web --project-name=lithos`. A prior idempotent step creates the Pages project on first run.
+- **Options considered:** *A — local Wrangler one-command deploy* (fastest, no secrets, but manual each
+  time); *B — GitHub Actions → Cloudflare (chosen)* (auto-deploy on push; needs a Cloudflare API token +
+  account ID as GitHub secrets; no Emscripten in Cloudflare's build image); *C — Cloudflare Git
+  integration* (Cloudflare builds on push, but must install Emscripten in its build image — slow/fragile).
+- **Decision:** Option B — auto-deploy on push, WASM built in GitHub CI (which already had a working emsdk
+  setup), then only the static output is handed to Cloudflare. Avoids C's fragile toolchain-in-Cloudflare.
+- **Requires (one-time, owner):** repo secrets **`CLOUDFLARE_API_TOKEN`** (scope: Account → Cloudflare
+  Pages → Edit) and **`CLOUDFLARE_ACCOUNT_ID`**. No secrets in the repo.
+- **Consequences:** site at `https://lithos.pages.dev` (Cloudflare CDN, free, custom-domain-capable). The
+  old GitHub Pages workflow is removed to avoid duplicate/failing runs; re-add if a fallback is wanted.
+  `[believed — workflow authored to Cloudflare's documented wrangler-action; end-to-end run pending the
+  owner adding the two secrets + first push]` — User input: chose *"GitHub Actions auto-deploy on push …
+  Cloudflare"*.
 
 ## Risk & assumption ledger
 | ID | Risk / assumption | Basis | L | I | One-way? | Cheapest test | Status |

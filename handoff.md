@@ -56,9 +56,10 @@ built (D-020, `simt/web/`). **PAUSED here (2026-07-06)** — recorded next steps
 **Nothing is blocking; the A→C arc + playground are complete. Resume any of these:**
 
 *Frontend / playground (D-020, D-023) → public launch:*
-- **Deploy: DONE (D-022)** — GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) rebuilds
-  the WASM from source (Emscripten 6.0.2) and publishes `simt/web/` to Pages at
-  `https://starkaritra.github.io/lithos/`.
+- **Deploy: Cloudflare Pages via CI (D-024, supersedes D-022)** — `.github/workflows/deploy-cloudflare.yml`
+  rebuilds the WASM from source (Emscripten 6.0.2) and `wrangler pages deploy`s `simt/web/` on every push.
+  **One-time setup:** add repo secrets `CLOUDFLARE_API_TOKEN` (Account → Cloudflare Pages → Edit) and
+  `CLOUDFLARE_ACCOUNT_ID`. Site: `https://lithos.pages.dev`. (Old GitHub Pages workflow removed.)
 - **Visualization upgrade: DONE (D-023)** — enriched trace (per-lane addresses/values + operands) drives
   a 3-panel view: warps × lanes, a word-level memory-block map with lane→word connectors (coalescing
   made visual), and a register data-flow panel (real replayed operand values). Automated checks pass

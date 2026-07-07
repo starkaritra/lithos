@@ -1,0 +1,58 @@
+# Builds the Arm A mini-GPU engine to WebAssembly and deploys the browser playground
+# (simt/web) to Cloudflare Pages on every push. The .js/.wasm are DERIVED artifacts —
+# gitignored and rebuilt here from source (flags mirror simt/build_wasm.ps1), so binaries
+# never live in git. Requires two repo secrets: CLOUDFLARE_API_TOKEN (scope: Account →
+# Cloudflare Pages → Edit) and CLOUDFLARE_ACCOUNT_ID.
+name: Deploy playground (Cloudflare Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "simt/src/**"
+      - "simt/include/**"
+      - "simt/web/**"
+      - ".github/workflows/deploy-cloudflare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.2
+
+      - name: Build WASM engine (flags mirror simt/build_wasm.ps1)
+        run: |
+          emcc -O2 -std=c++17 -fexceptions -Isimt/include \
+            simt/src/isa.cpp simt/src/assembler.cpp simt/src/core.cpp simt/src/wasm_api.cpp \
+            -s MODULARIZE=1 -s EXPORT_NAME=SimtModule \
+            -s "EXPORTED_FUNCTIONS=['_run_kernel','_malloc','_free']" \
+            -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap']" \
+            -s INITIAL_MEMORY=67108864 \
+            -o simt/web/simt.js
+
+      # Idempotent: creates the Pages project on the first run, tolerated if it exists.
+      - name: Ensure Cloudflare Pages project exists
+        run: npx --yes wrangler@3 pages project create lithos --production-branch=main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy simt/web to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy simt/web --project-name=lithos --branch=main
